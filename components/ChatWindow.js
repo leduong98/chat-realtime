@@ -91,9 +91,12 @@ export default function ChatWindow() {
             targetId: msg.fromId,
             answer,
           });
+          console.log("Sent answer to peer:", msg.fromId);
         } else if (msg.type === "answer") {
+          console.log("Received answer from peer");
           await handleAnswer(pcRef.current, msg.answer);
         } else if (msg.type === "ice-candidate" && msg.candidate) {
+          console.log("Received ICE candidate from peer:", msg.candidate.type);
           await addIceCandidate(pcRef.current, msg.candidate);
         } else if (msg.type === "typing") {
           setPeerTyping(true);
@@ -135,9 +138,9 @@ export default function ChatWindow() {
         pcRef.current.close();
         pcRef.current = null;
         setStatus("disconnected");
-        alert("Kết nối thất bại. Hãy thử lại hoặc kiểm tra network.");
+        alert("Kết nối thất bại sau 15 giây. Hãy thử lại hoặc kiểm tra network.");
       }
-    }, 30000); // 30 second timeout
+    }, 15000); // 15 second timeout
 
     const pc = createPeerConnection({
       onDataChannel: (channel) => {
@@ -178,6 +181,7 @@ export default function ChatWindow() {
         targetId: peerIdRef.current,
         offer,
       });
+      console.log("Sent offer to peer:", peerIdRef.current);
     }
   }
 
