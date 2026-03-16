@@ -82,6 +82,10 @@ export default function ChatWindow() {
           peerIdRef.current = msg.fromId;
           setStatus("connecting");
           const answer = await handleOffer(pcRef.current, msg.offer);
+
+          // Small delay to ensure ICE gathering is complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+
           sendSignal({
             type: "answer",
             targetId: msg.fromId,
@@ -165,6 +169,10 @@ export default function ChatWindow() {
     if (isInitiator) {
       const { offer, channel } = await createOffer(pc);
       setupDataChannel(channel);
+
+      // Small delay to ensure ICE gathering is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       sendSignal({
         type: "offer",
         targetId: peerIdRef.current,
