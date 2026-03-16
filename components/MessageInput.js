@@ -12,6 +12,7 @@ export default function MessageInput({
   const fileRef = useRef(null);
 
   function handleKeyDown(e) {
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (value.trim()) {
