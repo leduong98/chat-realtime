@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import { formatTime, formatChatAddress, parseChatAddress } from "../lib/utils";
@@ -27,11 +27,39 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export default function ChatWindow() {
-  const [userId, setUserId] = useState(null);
-  const [username, setUsername] = useState("");
+  // Initialize state with computed values to avoid setState in effects
+  const getInitialUserId = () => {
+    if (typeof window === "undefined") return null;
+    return getOrCreateUserId();
+  };
+
+  const getInitialUsername = (userId) => {
+    if (typeof window === "undefined") return "";
+    let storedName = getUsername();
+    if (!storedName) {
+      storedName = window.prompt("Nhập username của bạn") || "";
+      if (!storedName.trim()) {
+        storedName = `guest-${userId?.slice(0, 6) || 'user'}`;
+      }
+      saveUsername(storedName);
+    }
+    return storedName;
+  };
+
+  const getInitialMessages = () => {
+    if (typeof window === "undefined") return [];
+    return loadMessages();
+  };
+
+  const initialUserId = getInitialUserId();
+  const initialUsername = getInitialUsername(initialUserId);
+  const initialMessages = getInitialMessages();
+
+  const [userId, setUserId] = useState(initialUserId);
+  const [username, setUsername] = useState(initialUsername);
   const [peerAddress, setPeerAddress] = useState("");
-  const [status, setStatus] = useState("disconnected"); // connecting | connected | disconnected
-  const [messages, setMessages] = useState([]);
+  const [status, setStatus] = useState("disconnected");
+  const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -43,7 +71,63 @@ export default function ChatWindow() {
   const peerTypingTimeoutRef = useRef(null);
 
   // Function declarations - moved up to avoid hoisting issues
-  async function setupPeer(isInitiator) {
+  function showNotification(msg) {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (!document.hidden) return;
+    const body = msg.isImage ? "[Ảnh]" : msg.message;
+    new Notification("Tin nhắn mới", {
+      body,
+    });
+  }
+
+  const setupDataChannel = useCallback((channel) => {
+    console.log("Setting up data channel:", channel.label, channel.readyState);
+    channelRef.current = channel;
+    channel.onopen = () => {
+      console.log("Data channel opened");
+      setStatus("connected");
+    };
+    channel.onclose = () => {
+      console.log("Data channel closed");
+      setStatus("disconnected");
+    };
+    channel.onerror = (error) => {
+      console.error("Data channel error:", error);
+    };
+    channel.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "typing") {
+          setPeerTyping(true);
+          if (peerTypingTimeoutRef.current) {
+            clearTimeout(peerTypingTimeoutRef.current);
+          }
+          peerTypingTimeoutRef.current = setTimeout(
+            () => setPeerTyping(false),
+            1500
+          );
+        } else if (data.type === "message") {
+          const msg = {
+            id: uuidv4(),
+            chatId: peerIdRef.current,
+            senderId: data.senderId,
+            message: data.message,
+            isImage: data.isImage || false,
+            timestamp: data.timestamp,
+          };
+          setMessages((prev) => [...prev, msg]);
+          saveMessage(msg);
+          showNotification(msg);
+        }
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  const setupPeer = useCallback(async (isInitiator) => {
     if (pcRef.current) return;
     setStatus("connecting");
 
@@ -99,63 +183,7 @@ export default function ChatWindow() {
       });
       console.log("Sent offer to peer:", peerIdRef.current);
     }
-  }
-
-  function setupDataChannel(channel) {
-    console.log("Setting up data channel:", channel.label, channel.readyState);
-    channelRef.current = channel;
-    channel.onopen = () => {
-      console.log("Data channel opened");
-      setStatus("connected");
-    };
-    channel.onclose = () => {
-      console.log("Data channel closed");
-      setStatus("disconnected");
-    };
-    channel.onerror = (error) => {
-      console.error("Data channel error:", error);
-    };
-    channel.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "typing") {
-          setPeerTyping(true);
-          if (peerTypingTimeoutRef.current) {
-            clearTimeout(peerTypingTimeoutRef.current);
-          }
-          peerTypingTimeoutRef.current = setTimeout(
-            () => setPeerTyping(false),
-            1500
-          );
-        } else if (data.type === "message") {
-          const msg = {
-            id: uuidv4(),
-            chatId: peerIdRef.current,
-            senderId: data.senderId,
-            message: data.message,
-            isImage: data.isImage || false,
-            timestamp: data.timestamp,
-          };
-          setMessages((prev) => [...prev, msg]);
-          saveMessage(msg);
-          showNotification(msg);
-        }
-      } catch {
-        // ignore
-      }
-    };
-  }
-
-  function showNotification(msg) {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    if (!document.hidden) return;
-    const body = msg.isImage ? "[Ảnh]" : msg.message;
-    new Notification("Tin nhắn mới", {
-      body,
-    });
-  }
+  }, [setupDataChannel]);
 
   async function handleConnect() {
     if (!peerAddress.trim()) return;
@@ -234,24 +262,9 @@ export default function ChatWindow() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const id = getOrCreateUserId();
-    setUserId(id);
-
-    let storedName = getUsername();
-    if (!storedName) {
-      storedName = window.prompt("Nhập username của bạn") || "";
-      if (!storedName.trim()) {
-        storedName = `guest-${id.slice(0, 6)}`;
-      }
-      saveUsername(storedName);
-    }
-    setUsername(storedName);
-
-    const history = loadMessages();
-    setMessages(history);
-
-    if (id) {
-      connectSignaling(id, { username: storedName });
+    // Only setup signaling if we have userId
+    if (userId) {
+      connectSignaling(userId, { username });
       const unsubscribe = onSignalMessage(async (msg) => {
         console.log("Received signal message:", msg);
 
@@ -304,7 +317,7 @@ export default function ChatWindow() {
         unsubscribe();
       };
     }
-  }, []);
+  }, [userId, username, setupPeer]); // Add dependencies
 
   useEffect(() => {
     return () => {
