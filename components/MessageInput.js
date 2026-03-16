@@ -24,12 +24,7 @@ export default function MessageInput({
   function handleFileChange(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const maxSize = 150 * 1024;
-    if (file.size > maxSize) {
-      alert("Ảnh quá lớn, hãy chọn ảnh nhỏ hơn ~150KB.");
-      e.target.value = "";
-      return;
-    }
+    // Removed file size limit for unlimited image quality
     const reader = new FileReader();
     reader.onload = () => {
       if (onSendImage) onSendImage(reader.result);
