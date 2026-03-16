@@ -42,98 +42,7 @@ export default function ChatWindow() {
   const typingTimeoutRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
 
-  // Notifications
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const id = getOrCreateUserId();
-    setUserId(id);
-
-    let storedName = getUsername();
-    if (!storedName) {
-      storedName = window.prompt("Nhập username của bạn") || "";
-      if (!storedName.trim()) {
-        storedName = `guest-${id.slice(0, 6)}`;
-      }
-      saveUsername(storedName);
-    }
-    setUsername(storedName);
-
-    const history = loadMessages();
-    setMessages(history);
-
-    if (id) {
-      connectSignaling(id, { username: storedName });
-      const unsubscribe = onSignalMessage(async (msg) => {
-        console.log("Received signal message:", msg);
-
-        // Ensure we have a peer connection before processing signals
-        if (!pcRef.current) {
-          await setupPeer(false);
-        }
-
-        // Double check after setup
-        if (!pcRef.current) {
-          console.error("Failed to setup peer connection");
-          return;
-        }
-
-        if (msg.type === "offer") {
-          peerIdRef.current = msg.fromId;
-          setStatus("connecting");
-          const answer = await handleOffer(pcRef.current, msg.offer);
-
-          // Small delay to ensure ICE gathering is complete
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          sendSignal({
-            type: "answer",
-            targetId: msg.fromId,
-            answer,
-          });
-          console.log("Sent answer to peer:", msg.fromId);
-        } else if (msg.type === "answer") {
-          console.log("Received answer from peer");
-          await handleAnswer(pcRef.current, msg.answer);
-        } else if (msg.type === "ice-candidate" && msg.candidate) {
-          console.log("Received ICE candidate from peer:", msg.candidate.type);
-          await addIceCandidate(pcRef.current, msg.candidate);
-        } else if (msg.type === "typing") {
-          setPeerTyping(true);
-          if (peerTypingTimeoutRef.current) {
-            clearTimeout(peerTypingTimeoutRef.current);
-          }
-          peerTypingTimeoutRef.current = setTimeout(
-            () => setPeerTyping(false),
-            1500
-          );
-        } else if (msg.type === "peer-unavailable") {
-          setStatus("disconnected");
-          alert("Peer không online hoặc chưa mở trang chat.");
-        }
-      });
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (pcRef.current) {
-        pcRef.current.close();
-      }
-      stopPolling();
-    };
-  }, []);
-
+  // Function declarations - moved up to avoid hoisting issues
   async function setupPeer(isInitiator) {
     if (pcRef.current) return;
     setStatus("connecting");
@@ -313,6 +222,98 @@ export default function ChatWindow() {
       });
     }
   }
+
+  // Notifications
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const id = getOrCreateUserId();
+    setUserId(id);
+
+    let storedName = getUsername();
+    if (!storedName) {
+      storedName = window.prompt("Nhập username của bạn") || "";
+      if (!storedName.trim()) {
+        storedName = `guest-${id.slice(0, 6)}`;
+      }
+      saveUsername(storedName);
+    }
+    setUsername(storedName);
+
+    const history = loadMessages();
+    setMessages(history);
+
+    if (id) {
+      connectSignaling(id, { username: storedName });
+      const unsubscribe = onSignalMessage(async (msg) => {
+        console.log("Received signal message:", msg);
+
+        // Ensure we have a peer connection before processing signals
+        if (!pcRef.current) {
+          await setupPeer(false);
+        }
+
+        // Double check after setup
+        if (!pcRef.current) {
+          console.error("Failed to setup peer connection");
+          return;
+        }
+
+        if (msg.type === "offer") {
+          peerIdRef.current = msg.fromId;
+          setStatus("connecting");
+          const answer = await handleOffer(pcRef.current, msg.offer);
+
+          // Small delay to ensure ICE gathering is complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          sendSignal({
+            type: "answer",
+            targetId: msg.fromId,
+            answer,
+          });
+          console.log("Sent answer to peer:", msg.fromId);
+        } else if (msg.type === "answer") {
+          console.log("Received answer from peer");
+          await handleAnswer(pcRef.current, msg.answer);
+        } else if (msg.type === "ice-candidate" && msg.candidate) {
+          console.log("Received ICE candidate from peer:", msg.candidate.type);
+          await addIceCandidate(pcRef.current, msg.candidate);
+        } else if (msg.type === "typing") {
+          setPeerTyping(true);
+          if (peerTypingTimeoutRef.current) {
+            clearTimeout(peerTypingTimeoutRef.current);
+          }
+          peerTypingTimeoutRef.current = setTimeout(
+            () => setPeerTyping(false),
+            1500
+          );
+        } else if (msg.type === "peer-unavailable") {
+          setStatus("disconnected");
+          alert("Peer không online hoặc chưa mở trang chat.");
+        }
+      });
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pcRef.current) {
+        pcRef.current.close();
+      }
+      stopPolling();
+    };
+  }, []);
 
   const address = formatChatAddress(userId);
 
