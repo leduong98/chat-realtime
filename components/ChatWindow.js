@@ -45,6 +45,7 @@ export default function ChatWindow() {
   const peerIdRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
+  const pendingCandidates = useRef([]);
 
   // 3. Chỉ load dữ liệu từ LocalStorage sau khi giao diện đã gắn vào trình duyệt
   useEffect(() => {
@@ -270,21 +271,37 @@ export default function ChatWindow() {
           peerIdRef.current = msg.fromId;
           setStatus("connecting");
           const answer = await handleOffer(pcRef.current, msg.offer);
+          
+          // Sau khi set offer xong, lôi ICE candidates trong phòng chờ ra (nếu có)
+          while (pendingCandidates.current.length > 0) {
+            await addIceCandidate(pcRef.current, pendingCandidates.current.shift());
+          }
 
           await new Promise(resolve => setTimeout(resolve, 500));
-
-          sendSignal({
-            type: "answer",
-            targetId: msg.fromId,
-            answer,
-          });
+          sendSignal({ type: "answer", targetId: msg.fromId, answer });
           console.log("Sent answer to peer:", msg.fromId);
+
         } else if (msg.type === "answer") {
           console.log("Received answer from peer");
           await handleAnswer(pcRef.current, msg.answer);
+          
+          // QUAN TRỌNG: Cài đặt Answer xong, lôi tất cả ICE candidates trong phòng chờ ra nhét vào
+          while (pendingCandidates.current.length > 0) {
+            const candidate = pendingCandidates.current.shift();
+            await addIceCandidate(pcRef.current, candidate);
+          }
+
         } else if (msg.type === "ice-candidate" && msg.candidate) {
-          console.log("Received ICE candidate from peer:", msg.candidate.type);
-          await addIceCandidate(pcRef.current, msg.candidate);
+          console.log("Received ICE candidate from peer");
+          
+          // KIỂM TRA: Nếu đã có Remote Description (đã nhận Offer/Answer) thì add luôn
+          if (pcRef.current && pcRef.current.remoteDescription) {
+            await addIceCandidate(pcRef.current, msg.candidate);
+          } else {
+            // NẾU CHƯA: Tạm thời nhét vào phòng chờ
+            console.log("Remote description chưa có, tạm cất ICE vào phòng chờ");
+            pendingCandidates.current.push(msg.candidate);
+          }
         } else if (msg.type === "typing") {
           setPeerTyping(true);
           if (peerTypingTimeoutRef.current) {
