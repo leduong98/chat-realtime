@@ -15,6 +15,7 @@ import {
   connectSignaling,
   onSignalMessage,
   sendSignal,
+  stopPolling,
 } from "../lib/signaling";
 import {
   createPeerConnection,
@@ -114,6 +115,7 @@ export default function ChatWindow() {
       if (pcRef.current) {
         pcRef.current.close();
       }
+      stopPolling();
     };
   }, []);
 

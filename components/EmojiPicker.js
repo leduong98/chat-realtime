@@ -25,9 +25,8 @@ export default function EmojiPicker({ onSelect }) {
           <Picker
             theme="auto"
             onEmojiSelect={(emoji) => {
-              const value = emoji.native || emoji.shortcodes || "";
-              if (value && onSelect) {
-                onSelect(value);
+              if (emoji && emoji.native && onSelect) {
+                onSelect(emoji.native);
               }
             }}
           />
