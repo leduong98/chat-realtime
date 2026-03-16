@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+## P2P WebRTC Chat
 
-## Getting Started
+Ứng dụng chat peer‑to‑peer (P2P) giữa 2 trình duyệt, sử dụng:
 
-First, run the development server:
+- **Next.js App Router** (JavaScript, không TypeScript)
+- **TailwindCSS**
+- **WebRTC DataChannel** cho luồng chat trực tiếp
+- **WebSocket signaling** trong `pages/api/signal.js`
+- **Không dùng database**, lịch sử lưu cục bộ bằng `localStorage`
+
+### 1. Chạy local
+
+Yêu cầu:
+
+- Node.js >= 18 (đang dùng Node 24)
+- npm
+
+Lệnh chạy:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mở trình duyệt tại `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### 2. Cách 2 người kết nối chat
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Mở `http://localhost:3000/chat` trên **máy A** và **máy B** (cùng LAN hoặc deploy lên Vercel).
+2. Lần đầu mở, app sẽ:
+   - Tạo `userId` random và lưu vào `localStorage`.
+   - Hỏi `username` và lưu vào `localStorage`.
+3. Ở góc phải header, mỗi người có **địa chỉ chat** dạng:
 
-## Learn More
+   - `chat://username#1234`
 
-To learn more about Next.js, take a look at the following resources:
+   Nhấn nút **“Copy địa chỉ”** để copy.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. Để kết nối:
+   - Người A copy địa chỉ của mình gửi cho B (qua bất kỳ kênh nào).
+   - Người B dán địa chỉ đó vào ô **Connect** rồi bấm **Connect**.
+   - Signaling sẽ dùng WebSocket (`/api/signal`) để trao đổi SDP offer/answer + ICE.
+   - Sau khi kết nối xong, tất cả tin nhắn đi qua **WebRTC DataChannel** P2P.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Mỗi máy:
+   - Lưu lịch sử chat cục bộ trong `localStorage` với cấu trúc:
 
-## Deploy on Vercel
+     ```json
+     {
+       "chatId": "peer-username-or-id",
+       "senderId": "local-or-peer-id",
+       "message": "nội dung hoặc base64",
+       "timestamp": 1710000000000
+     }
+     ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   - Khi reload trang, lịch sử trên **máy đó** vẫn còn; máy kia có lịch sử riêng.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 3. Tính năng chính
+
+- **Kết nối P2P**:
+  - WebRTC `RTCPeerConnection` + `DataChannel` cho chat.
+  - WebSocket signaling đơn giản ở `pages/api/signal.js`.
+- **UI Chat**:
+  - Header hiển thị `username`, trạng thái kết nối, nút copy địa chỉ chat.
+  - Khu vực chat dạng bubble, phân biệt tin nhắn gửi/nhận.
+  - Input gồm:
+    - Ô nhập text.
+    - Nút gửi.
+    - Nút emoji + emoji picker.
+    - Nút gửi ảnh nhỏ (base64).
+- **Emoji**:
+  - Tích hợp `emoji-mart`.
+  - Click emoji để chèn vào ô input.
+- **Trạng thái & UX**:
+  - Hiển thị trạng thái: `connecting`, `connected`, `disconnected`.
+  - Typing indicator: hiển thị khi peer đang nhập.
+  - Auto scroll xuống tin nhắn mới (theo chiều render).
+- **LocalStorage**:
+  - Lưu tin nhắn dạng:
+
+    ```json
+    {
+      "chatId": "peerId",
+      "senderId": "userId",
+      "message": "string hoặc base64 image",
+      "timestamp": 1710000000000
+    }
+    ```
+
+- **Bonus**:
+  - Gửi ảnh nhỏ base64.
+  - Dark mode (theo Tailwind & `prefers-color-scheme`).
+  - Notification khi có tin nhắn mới (khi tab bị ẩn và user cho phép Notification).
+
+### 4. Deploy lên Vercel
+
+1. Push code lên GitHub/GitLab.
+2. Vào Vercel, chọn **New Project** và import repo.
+3. Vercel tự detect Next.js:
+   - Build command: `npm run build`
+   - Output: `.next`
+4. Deploy, sau khi xong bạn sẽ có URL dạng `https://your-app.vercel.app`.
+5. Hai người chỉ cần mở `https://your-app.vercel.app/chat` rồi kết nối như phần trên.
+
