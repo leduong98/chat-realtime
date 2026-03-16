@@ -73,10 +73,17 @@ export default function ChatWindow() {
       connectSignaling(id, { username: storedName });
       const unsubscribe = onSignalMessage(async (msg) => {
         console.log("Received signal message:", msg);
+
+        // Ensure we have a peer connection before processing signals
         if (!pcRef.current) {
           await setupPeer(false);
         }
-        if (!pcRef.current) return;
+
+        // Double check after setup
+        if (!pcRef.current) {
+          console.error("Failed to setup peer connection");
+          return;
+        }
 
         if (msg.type === "offer") {
           peerIdRef.current = msg.fromId;
