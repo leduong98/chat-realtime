@@ -307,7 +307,7 @@ export default function ChatWindow() {
     }
   }
 
-  const address = formatChatAddress(username || userId);
+  const address = formatChatAddress(userId);
 
   return (
     <div className="flex flex-col h-full">

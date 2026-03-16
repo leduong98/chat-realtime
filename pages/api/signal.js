@@ -1,80 +1,35 @@
-// HTTP Long-Polling signaling server (works on Vercel)
+import Pusher from 'pusher';
 
-// In-memory storage
-const peers = new Map(); // userId -> { username, lastSeen }
-const messageQueues = new Map(); // userId -> [messages]
-const usernameToUserId = new Map(); // username -> userId
+// Khởi tạo Pusher Server
+const pusher = new Pusher({
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.NEXT_PUBLIC_PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
+  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
+  useTLS: true,
+});
 
-export default function handler(req, res) {
-  // Get userId from query for GET, from body for POST
-  const userId = req.method === "GET" ? req.query.userId : req.body.userId;
-
-  if (!userId) {
-    return res.status(400).json({ error: "Missing userId" });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  if (req.method === "GET") {
-    // GET: retrieve queued messages for this user
-    const messages = messageQueues.get(userId) || [];
-    messageQueues.delete(userId);
+  const { targetId, fromId, ...payload } = req.body;
 
-    // Update last seen
-    if (peers.has(userId)) {
-      const peer = peers.get(userId);
-      peer.lastSeen = Date.now();
-      peers.set(userId, peer);
-    }
-
-    res.status(200).json(messages);
-    return;
+  if (!targetId) {
+    return res.status(400).json({ error: 'Missing targetId' });
   }
 
-  if (req.method === "POST") {
-    // POST: send a message to another user
-    const { type, targetId, username, message } = req.body;
-
-    // Register username
-    if (type === "register" && username) {
-      peers.set(userId, {
-        username,
-        lastSeen: Date.now(),
-      });
-      usernameToUserId.set(username, userId);
-      return res.status(200).json({ ok: true });
-    }
-
-    if (!targetId) {
-      return res.status(400).json({ error: "Missing targetId" });
-    }
-
-    // Find target user
-    const targetUserId = usernameToUserId.get(targetId) || targetId;
-
-    // Check if target exists
-    if (!peers.has(targetUserId)) {
-      return res.status(200).json({
-        type: "peer-unavailable",
-        targetId,
-      });
-    }
-
-    // Queue message for target user
-    if (!messageQueues.has(targetUserId)) {
-      messageQueues.set(targetUserId, []);
-    }
-
-    messageQueues.get(targetUserId).push({
-      type,
-      targetId,
-      message,
-      fromId: userId,
-      timestamp: Date.now(),
+  try {
+    // Phát tín hiệu đến một channel dành riêng cho người nhận (targetId)
+    await pusher.trigger(`user-${targetId}`, 'signal-event', {
+      fromId,
+      ...payload
     });
 
-    res.status(200).json({ ok: true });
-    return;
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Pusher error:', error);
+    res.status(500).json({ error: 'Failed to send signal' });
   }
-
-  res.status(405).end();
 }
-
