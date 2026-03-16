@@ -72,6 +72,7 @@ export default function ChatWindow() {
     if (id) {
       connectSignaling(id, { username: storedName });
       const unsubscribe = onSignalMessage(async (msg) => {
+        console.log("Received signal message:", msg);
         if (!pcRef.current) {
           await setupPeer(false);
         }
@@ -137,6 +138,7 @@ export default function ChatWindow() {
         }
       },
       onConnectionStateChange: (state) => {
+        console.log("WebRTC connection state:", state);
         if (state === "connected") {
           setStatus("connected");
         } else if (state === "disconnected" || state === "failed") {
@@ -159,12 +161,18 @@ export default function ChatWindow() {
   }
 
   function setupDataChannel(channel) {
+    console.log("Setting up data channel:", channel.label, channel.readyState);
     channelRef.current = channel;
     channel.onopen = () => {
+      console.log("Data channel opened");
       setStatus("connected");
     };
     channel.onclose = () => {
+      console.log("Data channel closed");
       setStatus("disconnected");
+    };
+    channel.onerror = (error) => {
+      console.error("Data channel error:", error);
     };
     channel.onmessage = (event) => {
       try {
@@ -217,10 +225,12 @@ export default function ChatWindow() {
   }
 
   function handleSendMessageInternal({ text, isImage }) {
+    console.log("Attempting to send message. Channel state:", channelRef.current?.readyState);
     if (!channelRef.current || channelRef.current.readyState !== "open") {
       alert("Chưa kết nối WebRTC, hãy kiểm tra lại peer.");
       return;
     }
+    console.log("Sending message:", { text: text.substring(0, 50), isImage });
     const payload = {
       type: "message",
       senderId: userId,
