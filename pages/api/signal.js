@@ -6,7 +6,8 @@ const messageQueues = new Map(); // userId -> [messages]
 const usernameToUserId = new Map(); // username -> userId
 
 export default function handler(req, res) {
-  const { userId } = req.query;
+  // Get userId from query for GET, from body for POST
+  const userId = req.method === "GET" ? req.query.userId : req.body.userId;
 
   if (!userId) {
     return res.status(400).json({ error: "Missing userId" });
