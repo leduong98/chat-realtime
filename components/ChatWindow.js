@@ -124,6 +124,17 @@ export default function ChatWindow() {
     if (pcRef.current) return;
     setStatus("connecting");
 
+    // Add connection timeout
+    const connectionTimeout = setTimeout(() => {
+      if (pcRef.current && pcRef.current.connectionState !== "connected") {
+        console.log("Connection timeout - closing peer connection");
+        pcRef.current.close();
+        pcRef.current = null;
+        setStatus("disconnected");
+        alert("Kết nối thất bại. Hãy thử lại hoặc kiểm tra network.");
+      }
+    }, 30000); // 30 second timeout
+
     const pc = createPeerConnection({
       onDataChannel: (channel) => {
         setupDataChannel(channel);
@@ -140,8 +151,10 @@ export default function ChatWindow() {
       onConnectionStateChange: (state) => {
         console.log("WebRTC connection state:", state);
         if (state === "connected") {
+          clearTimeout(connectionTimeout);
           setStatus("connected");
         } else if (state === "disconnected" || state === "failed") {
+          clearTimeout(connectionTimeout);
           setStatus("disconnected");
         }
       },
