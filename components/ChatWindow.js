@@ -27,39 +27,15 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export default function ChatWindow() {
-  // Initialize state with computed values to avoid setState in effects
-  const getInitialUserId = () => {
-    if (typeof window === "undefined") return null;
-    return getOrCreateUserId();
-  };
-
-  const getInitialUsername = (userId) => {
-    if (typeof window === "undefined") return "";
-    let storedName = getUsername();
-    if (!storedName) {
-      storedName = window.prompt("Nhập username của bạn") || "";
-      if (!storedName.trim()) {
-        storedName = `guest-${userId?.slice(0, 6) || 'user'}`;
-      }
-      saveUsername(storedName);
-    }
-    return storedName;
-  };
-
-  const getInitialMessages = () => {
-    if (typeof window === "undefined") return [];
-    return loadMessages();
-  };
-
-  const initialUserId = getInitialUserId();
-  const initialUsername = getInitialUsername(initialUserId);
-  const initialMessages = getInitialMessages();
-
-  const [userId, setUserId] = useState(initialUserId);
-  const [username, setUsername] = useState(initialUsername);
+  // 1. Thêm state mounted để sửa triệt để lỗi Hydration (Error 418)
+  const [mounted, setMounted] = useState(false);
+  
+  // 2. Khởi tạo state trống, không gọi localStorage ở đây
+  const [userId, setUserId] = useState(null);
+  const [username, setUsername] = useState("");
   const [peerAddress, setPeerAddress] = useState("");
   const [status, setStatus] = useState("disconnected");
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -70,7 +46,26 @@ export default function ChatWindow() {
   const typingTimeoutRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
 
-  // Function declarations - moved up to avoid hoisting issues
+  // 3. Chỉ load dữ liệu từ LocalStorage sau khi giao diện đã gắn vào trình duyệt
+  useEffect(() => {
+    const id = getOrCreateUserId();
+    setUserId(id);
+
+    let storedName = getUsername();
+    if (!storedName) {
+      storedName = window.prompt("Nhập username của bạn") || "";
+      if (!storedName.trim()) {
+        storedName = `guest-${id.slice(0, 6)}`;
+      }
+      saveUsername(storedName);
+    }
+    setUsername(storedName);
+    setMessages(loadMessages());
+    
+    // Đánh dấu đã load xong
+    setMounted(true);
+  }, []);
+
   function showNotification(msg) {
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) return;
@@ -131,7 +126,6 @@ export default function ChatWindow() {
     if (pcRef.current) return;
     setStatus("connecting");
 
-    // Add connection timeout
     const connectionTimeout = setTimeout(() => {
       if (pcRef.current && pcRef.current.connectionState !== "connected") {
         console.log("Connection timeout - closing peer connection");
@@ -140,7 +134,7 @@ export default function ChatWindow() {
         setStatus("disconnected");
         alert("Kết nối thất bại sau 15 giây. Hãy thử lại hoặc kiểm tra network.");
       }
-    }, 15000); // 15 second timeout
+    }, 15000); 
 
     const pc = createPeerConnection({
       onDataChannel: (channel) => {
@@ -173,7 +167,6 @@ export default function ChatWindow() {
       const { offer, channel } = await createOffer(pc);
       setupDataChannel(channel);
 
-      // Small delay to ensure ICE gathering is complete
       await new Promise(resolve => setTimeout(resolve, 500));
 
       sendSignal({
@@ -194,12 +187,10 @@ export default function ChatWindow() {
   }
 
   function handleSendMessageInternal({ text, isImage }) {
-    console.log("Attempting to send message. Channel state:", channelRef.current?.readyState);
     if (!channelRef.current || channelRef.current.readyState !== "open") {
       alert("Chưa kết nối WebRTC, hãy kiểm tra lại peer.");
       return;
     }
-    console.log("Sending message:", { text: text.substring(0, 50), isImage });
     const payload = {
       type: "message",
       senderId: userId,
@@ -251,7 +242,6 @@ export default function ChatWindow() {
     }
   }
 
-  // Notifications
   useEffect(() => {
     if (typeof window === "undefined") return;
     if ("Notification" in window && Notification.permission === "default") {
@@ -262,18 +252,15 @@ export default function ChatWindow() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Only setup signaling if we have userId
     if (userId) {
       connectSignaling(userId, { username });
       const unsubscribe = onSignalMessage(async (msg) => {
         console.log("Received signal message:", msg);
 
-        // Ensure we have a peer connection before processing signals
         if (!pcRef.current) {
           await setupPeer(false);
         }
 
-        // Double check after setup
         if (!pcRef.current) {
           console.error("Failed to setup peer connection");
           return;
@@ -284,7 +271,6 @@ export default function ChatWindow() {
           setStatus("connecting");
           const answer = await handleOffer(pcRef.current, msg.offer);
 
-          // Small delay to ensure ICE gathering is complete
           await new Promise(resolve => setTimeout(resolve, 500));
 
           sendSignal({
@@ -317,7 +303,7 @@ export default function ChatWindow() {
         unsubscribe();
       };
     }
-  }, [userId, username, setupPeer]); // Add dependencies
+  }, [userId, username, setupPeer]);
 
   useEffect(() => {
     return () => {
@@ -327,6 +313,15 @@ export default function ChatWindow() {
       stopPolling();
     };
   }, []);
+
+  // 4. Nếu chưa mount xong ở Client, không render UI để tránh lệch HTML
+  if (!mounted) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-sm text-slate-500 animate-pulse">Đang khởi tạo kết nối an toàn...</div>
+      </div>
+    );
+  }
 
   const address = formatChatAddress(userId);
 
@@ -340,7 +335,9 @@ export default function ChatWindow() {
           </div>
           <div>
             <div className="text-xs text-slate-500">Bạn đang đăng nhập</div>
-            <div className="font-semibold text-slate-800">{username}</div>
+            <div className="font-semibold text-slate-800">
+              {username} <span className="text-xs font-normal text-slate-400">({userId?.slice(0, 8)}...)</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -378,7 +375,7 @@ export default function ChatWindow() {
         <input
           type="text"
           className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-          placeholder="Dán địa chỉ peer, ví dụ: chat://username#1234"
+          placeholder="Dán địa chỉ peer, ví dụ: chat://abc-123..."
           value={peerAddress}
           onChange={(e) => setPeerAddress(e.target.value)}
         />
@@ -422,4 +419,3 @@ export default function ChatWindow() {
     </div>
   );
 }
-
