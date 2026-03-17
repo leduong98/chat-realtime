@@ -135,7 +135,7 @@ export default function ChatWindow() {
         setStatus("disconnected");
         alert("Kết nối thất bại sau 15 giây. Hãy thử lại hoặc kiểm tra network.");
       }
-    }, 25000); 
+    }, 8000); 
 
     const pc = createPeerConnection({
       onDataChannel: (channel) => {
