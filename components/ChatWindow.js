@@ -282,10 +282,13 @@ export default function ChatWindow() {
           console.log("Sent answer to peer:", msg.fromId);
 
         } else if (msg.type === "answer") {
+          // Chỉ set answer khi đang chờ (have-local-offer). Tránh set 2 lần -> wrong state: stable
+          if (pcRef.current.signalingState !== "have-local-offer") {
+            return;
+          }
           console.log("Received answer from peer");
           await handleAnswer(pcRef.current, msg.answer);
-          
-          // QUAN TRỌNG: Cài đặt Answer xong, lôi tất cả ICE candidates trong phòng chờ ra nhét vào
+
           while (pendingCandidates.current.length > 0) {
             const candidate = pendingCandidates.current.shift();
             await addIceCandidate(pcRef.current, candidate);
