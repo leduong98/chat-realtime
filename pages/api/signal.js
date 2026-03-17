@@ -34,6 +34,10 @@ export default async function handler(req, res) {
     const messages = [...queue];
     queue.length = 0;
 
+    // Ưu tiên offer/answer trước ice-candidate để client set remoteDescription trước khi add ICE
+    const order = { offer: 0, answer: 1, "ice-candidate": 2 };
+    messages.sort((a, b) => (order[a.type] ?? 3) - (order[b.type] ?? 3));
+
     return res.status(200).json({ messages });
   }
 

@@ -39,10 +39,12 @@ Mở trình duyệt tại `http://localhost:3000`.
 4. Để kết nối:
    - Người A copy địa chỉ của mình gửi cho B (qua bất kỳ kênh nào).
    - Người B dán địa chỉ đó vào ô **Connect** rồi bấm **Connect**.
-   - Signaling sẽ dùng WebSocket (`/api/signal`) để trao đổi SDP offer/answer + ICE.
-   - Sau khi kết nối xong, tất cả tin nhắn đi qua **WebRTC DataChannel** P2P.
+   - Signaling qua HTTP polling (`/api/signal`) trao đổi offer/answer + ICE.
+   - Sau khi bắt tay xong, tin nhắn đi qua **WebRTC DataChannel** (P2P hoặc relay qua TURN).
 
-5. Mỗi máy:
+5. **Máy sau firewall / NAT chặt:** App đã bật **TURN relay** (Open Relay, free). Khi kết nối trực tiếp P2P bị chặn, trình duyệt tự relay qua TURN (port 443) nên vẫn chat được. Muốn dùng TURN riêng: set biến môi trường `NEXT_PUBLIC_TURN_URI`, `NEXT_PUBLIC_TURN_USERNAME`, `NEXT_PUBLIC_TURN_CREDENTIAL` (xem `.env.example`).
+
+6. Mỗi máy:
    - Lưu lịch sử chat cục bộ trong `localStorage` với cấu trúc:
 
      ```json
