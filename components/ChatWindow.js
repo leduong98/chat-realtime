@@ -4,7 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
-import { getOrCreateUserId, loadMessages, saveMessage } from "../lib/storage";
+import {
+  getOrCreateUserId,
+  loadMessages,
+  saveMessage,
+  loadPeers,
+  savePeers,
+  loadActivePeer,
+  saveActivePeer,
+} from "../lib/storage";
 import { createSseClient } from "../lib/sseClient";
 import { sendMessage } from "../lib/api";
 
@@ -23,8 +31,11 @@ export default function ChatWindow() {
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
 
-  const [peerIdInput, setPeerIdInput] = useState("");
-  const [peerId, setPeerId] = useState("");
+  const [peers, setPeers] = useState([]); // [{ peerId, alias, createdAt }]
+  const [activePeerId, setActivePeerId] = useState("");
+  const [newPeerId, setNewPeerId] = useState("");
+  const [newAlias, setNewAlias] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -36,16 +47,24 @@ export default function ChatWindow() {
   const bottomRef = useRef(null);
 
   const status = useMemo(() => {
-    if (!peerId) return "disconnected";
+    if (!activePeerId) return "disconnected";
     if (sseStatus === "connected") return "connected";
     if (sseStatus === "connecting") return "connecting";
     return "disconnected";
-  }, [peerId, sseStatus]);
+  }, [activePeerId, sseStatus]);
 
   useEffect(() => {
     const id = getOrCreateUserId();
     setUserId(id);
     setMounted(true);
+  }, []);
+
+  // Load saved peer list + active peer
+  useEffect(() => {
+    const list = loadPeers();
+    setPeers(list);
+    const active = loadActivePeer();
+    if (active) setActivePeerId(active);
   }, []);
 
   // Browser notification permission (best-effort)
@@ -156,9 +175,10 @@ export default function ChatWindow() {
 
   // Load local history when selecting peer
   useEffect(() => {
-    if (!peerId) return;
-    setMessages(loadMessages(peerId));
-  }, [peerId]);
+    if (!activePeerId) return;
+    setMessages(loadMessages(activePeerId));
+    saveActivePeer(activePeerId);
+  }, [activePeerId]);
 
   // Auto scroll
   useEffect(() => {
@@ -173,11 +193,11 @@ export default function ChatWindow() {
   }
 
   function handleTyping() {
-    if (!userId || !peerId) return;
+    if (!userId || !activePeerId) return;
     // Fake typing indicator: only shows if peer is online with open SSE
     sendMessage({
       fromId: userId,
-      toId: peerId,
+      toId: activePeerId,
       text: "",
       timestamp: Date.now(),
       type: "typing",
@@ -187,29 +207,62 @@ export default function ChatWindow() {
   async function handleSend() {
     const text = (input || "").trim();
     if (!text) return;
-    if (!userId || !peerId) return;
+    if (!userId || !activePeerId) return;
 
     const local = {
       id: uuidv4(),
-      chatId: peerId,
+      chatId: activePeerId,
       senderId: userId,
       message: text,
       timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, local]);
-    saveMessage(peerId, local);
+    saveMessage(activePeerId, local);
     setInput("");
 
     // Ephemeral send: no delivery guarantee if peer offline (no open SSE)
     sendMessage({
       fromId: userId,
-      toId: peerId,
+      toId: activePeerId,
       text,
       timestamp: local.timestamp,
       type: "message",
     }).catch(() => {});
   }
+
+  function addPeer() {
+    const pid = (newPeerId || "").trim();
+    const alias = (newAlias || "").trim();
+    if (!pid) return;
+    if (pid === userId) {
+      alert("Không thể connect chính mình.");
+      return;
+    }
+    const exists = peers.some((p) => p.peerId === pid);
+    const next = exists
+      ? peers.map((p) => (p.peerId === pid ? { ...p, alias: alias || p.alias } : p))
+      : [{ peerId: pid, alias: alias || pid.slice(0, 8), createdAt: Date.now() }, ...peers];
+    setPeers(next);
+    savePeers(next);
+    setActivePeerId(pid);
+    setNewPeerId("");
+    setNewAlias("");
+    setShowAdd(false);
+  }
+
+  function removePeer(pid) {
+    const next = peers.filter((p) => p.peerId !== pid);
+    setPeers(next);
+    savePeers(next);
+    if (activePeerId === pid) {
+      const fallback = next[0]?.peerId || "";
+      setActivePeerId(fallback);
+      saveActivePeer(fallback);
+    }
+  }
+
+  const activePeer = peers.find((p) => p.peerId === activePeerId) || null;
 
   if (!mounted) {
     return (
@@ -273,22 +326,93 @@ export default function ChatWindow() {
         </div>
       </header>
 
-      {/* Connect */}
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="text"
-          className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-          placeholder="Nhập peerId (userId của người kia)"
-          value={peerIdInput}
-          onChange={(e) => setPeerIdInput(e.target.value)}
-        />
-        <button
-          type="button"
-          className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] transition-all"
-          onClick={handleConnectPeer}
-        >
-          Connect
-        </button>
+      {/* Peers */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="text-sm font-semibold text-slate-700">
+            Đang chat với:{" "}
+            <span className="text-slate-900">
+              {activePeer ? activePeer.alias : "Chưa chọn"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition-colors"
+            onClick={() => setShowAdd((v) => !v)}
+          >
+            ➕ Kết nối mới
+          </button>
+        </div>
+
+        {showAdd ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <input
+                type="text"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
+                placeholder="peerId (userId người kia)"
+                value={newPeerId}
+                onChange={(e) => setNewPeerId(e.target.value)}
+              />
+              <input
+                type="text"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
+                placeholder="Biệt danh (vd: Anh A)"
+                value={newAlias}
+                onChange={(e) => setNewAlias(e.target.value)}
+              />
+              <button
+                type="button"
+                className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] transition-all"
+                onClick={addPeer}
+              >
+                Thêm & mở chat
+              </button>
+            </div>
+            <div className="mt-2 text-xs text-slate-500">
+              Gợi ý: người kia bấm “Copy ID” và gửi cho bạn.
+            </div>
+          </div>
+        ) : null}
+
+        {peers.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {peers.map((p) => (
+              <div
+                key={p.peerId}
+                className={`flex items-center gap-2 px-3 py-2 rounded-2xl border text-sm ${
+                  p.peerId === activePeerId
+                    ? "bg-green-50 border-green-200 text-green-800"
+                    : "bg-white border-slate-200 text-slate-700"
+                }`}
+              >
+                <button
+                  type="button"
+                  className="text-left"
+                  onClick={() => setActivePeerId(p.peerId)}
+                  title={p.peerId}
+                >
+                  <div className="font-semibold leading-4">{p.alias}</div>
+                  <div className="text-[11px] text-slate-500 leading-4">
+                    {p.peerId.slice(0, 8)}…
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="text-slate-400 hover:text-red-500"
+                  onClick={() => removePeer(p.peerId)}
+                  title="Xóa khỏi danh sách"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-slate-500">
+            Chưa có kết nối nào. Bấm “Kết nối mới” để thêm peer.
+          </div>
+        )}
       </div>
 
       {/* Messages */}
