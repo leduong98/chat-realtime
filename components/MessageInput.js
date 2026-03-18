@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import EmojiPicker from "./EmojiPicker";
-import { Image as ImageIcon, SendHorizonal } from "lucide-react";
+import { Image as ImageIcon, SendHorizonal, X } from "lucide-react";
 
 export default function MessageInput({
   value,
@@ -8,6 +8,8 @@ export default function MessageInput({
   onSend,
   onTyping,
   onSendImage,
+  replyTo,
+  onCancelReply,
   disabled,
 }) {
   const textareaRef = useRef(null);
@@ -33,10 +35,29 @@ export default function MessageInput({
   }
 
   return (
-    <div className="flex items-end gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2">
+    <div className="border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2">
+      {replyTo ? (
+        <div className="mb-2 flex items-start justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-3 py-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-[var(--muted)]">Đang trả lời</div>
+            <div className="text-sm text-[var(--fg)] truncate">{replyTo.preview || "Tin nhắn"}</div>
+          </div>
+          <button
+            type="button"
+            className="p-2 rounded-xl hover:bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] cursor-pointer"
+            onClick={onCancelReply}
+            title="Hủy trả lời"
+            disabled={disabled}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex items-end gap-2">
       <button
         type="button"
-        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)]"
+        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)] cursor-pointer"
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
         title="Gửi ảnh (base64)"
@@ -89,13 +110,14 @@ export default function MessageInput({
       />
       <button
         type="button"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors cursor-pointer"
         onClick={onSend}
         disabled={disabled || !value.trim()}
       >
         <SendHorizonal className="h-4 w-4" />
         Gửi
       </button>
+      </div>
     </div>
   );
 }
