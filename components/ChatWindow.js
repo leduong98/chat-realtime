@@ -15,6 +15,7 @@ import {
 } from "../lib/storage";
 import { createSseClient } from "../lib/sseClient";
 import { sendMessage } from "../lib/api";
+import { applyTheme, getInitialTheme, saveTheme } from "../lib/theme";
 
 function formatTime(ts) {
   try {
@@ -30,6 +31,7 @@ export default function ChatWindow() {
   const [userId, setUserId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
+  const [theme, setTheme] = useState("light");
 
   const [peers, setPeers] = useState([]); // [{ peerId, alias, createdAt }]
   const [activePeerId, setActivePeerId] = useState("");
@@ -58,6 +60,19 @@ export default function ChatWindow() {
     setUserId(id);
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const t = getInitialTheme();
+    setTheme(t);
+    applyTheme(t);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    applyTheme(next);
+    saveTheme(next);
+  }
 
   // Load saved peer list + active peer
   useEffect(() => {
@@ -309,14 +324,14 @@ export default function ChatWindow() {
         </div>
       ) : null}
       {/* Header */}
-      <header className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
+      <header className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 text-lg">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--amber-soft)] flex items-center justify-center text-[var(--amber)] text-lg">
             👤
           </div>
           <div className="min-w-0">
-            <div className="text-xs text-slate-500">User ID</div>
-            <div className="font-semibold text-slate-800 truncate">{userId}</div>
+            <div className="text-xs text-[var(--muted)]">User ID</div>
+            <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -345,12 +360,20 @@ export default function ChatWindow() {
             className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
               copied
                 ? "bg-green-100 text-green-700 border-green-200"
-                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                : "bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
             }`}
             onClick={handleCopyMyId}
             title="Copy userId để gửi cho người kia"
           >
             {copied ? "✅ Copied" : "📋 Copy ID"}
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-xl text-xs font-semibold transition-colors border bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
+            onClick={toggleTheme}
+            title="Đổi giao diện sáng/tối"
+          >
+            {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
           </button>
         </div>
       </header>
@@ -358,15 +381,15 @@ export default function ChatWindow() {
       {/* Peers */}
       <div className="mb-4">
         <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="text-sm font-semibold text-slate-700">
+          <div className="text-sm font-semibold text-[var(--muted)]">
             Đang chat với:{" "}
-            <span className="text-slate-900">
+            <span className="text-[var(--fg)]">
               {activePeer ? activePeer.alias : "Chưa chọn"}
             </span>
           </div>
           <button
             type="button"
-            className="px-3 py-2 rounded-xl bg-amber-100 text-amber-700 text-xs font-semibold hover:bg-amber-200 transition-colors"
+            className="px-3 py-2 rounded-xl bg-[var(--amber-soft)] text-[var(--amber)] text-xs font-semibold hover:opacity-90 transition-opacity"
             onClick={() => setShowAdd((v) => !v)}
           >
             ➕ Kết nối mới
@@ -374,18 +397,18 @@ export default function ChatWindow() {
         </div>
 
         {showAdd ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-3">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input
                 type="text"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
                 placeholder="peerId (userId người kia)"
                 value={newPeerId}
                 onChange={(e) => setNewPeerId(e.target.value)}
               />
               <input
                 type="text"
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
                 placeholder="Biệt danh (vd: Anh A)"
                 value={newAlias}
                 onChange={(e) => setNewAlias(e.target.value)}
@@ -398,7 +421,7 @@ export default function ChatWindow() {
                 Thêm & mở chat
               </button>
             </div>
-            <div className="mt-2 text-xs text-slate-500">
+            <div className="mt-2 text-xs text-[var(--muted)]">
               Gợi ý: người kia bấm “Copy ID” và gửi cho bạn.
             </div>
           </div>
@@ -412,7 +435,7 @@ export default function ChatWindow() {
                 className={`flex items-center gap-2 px-3 py-2 rounded-2xl border text-sm ${
                   p.peerId === activePeerId
                     ? "bg-green-50 border-green-200 text-green-800"
-                    : "bg-white border-slate-200 text-slate-700"
+                    : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
                 }`}
               >
                 <button
@@ -422,13 +445,13 @@ export default function ChatWindow() {
                   title={p.peerId}
                 >
                   <div className="font-semibold leading-4">{p.alias}</div>
-                  <div className="text-[11px] text-slate-500 leading-4">
+                  <div className="text-[11px] text-[var(--muted)] leading-4">
                     {p.peerId.slice(0, 8)}…
                   </div>
                 </button>
                 <button
                   type="button"
-                  className="text-slate-400 hover:text-red-500"
+                  className="text-[var(--muted)] hover:text-red-500"
                   onClick={() => removePeer(p.peerId)}
                   title="Xóa khỏi danh sách"
                 >
@@ -438,14 +461,14 @@ export default function ChatWindow() {
             ))}
           </div>
         ) : (
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-[var(--muted)]">
             Chưa có kết nối nào. Bấm “Kết nối mới” để thêm peer.
           </div>
         )}
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-white/50 rounded-2xl p-3 min-h-0">
+      <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-[var(--card)]/50 rounded-2xl p-3 min-h-0 border border-[var(--border)]">
         {messages.map((m) => (
           <MessageBubble
             key={m.id}

@@ -6,7 +6,7 @@ export default function MessageBubble({ isOwn, message, timestamp, kind }) {
         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
           isOwn
             ? "bg-[#22c55e] text-white rounded-br-md"
-            : "bg-[#fef08a]/90 text-slate-800 border border-amber-200/60 rounded-bl-md"
+            : "bg-[var(--card)] text-[var(--fg)] border border-[var(--border)] rounded-bl-md"
         }`}
       >
         {isImage ? (
@@ -21,7 +21,7 @@ export default function MessageBubble({ isOwn, message, timestamp, kind }) {
               className={`text-xs font-semibold px-3 py-1.5 rounded-xl border ${
                 isOwn
                   ? "bg-white/15 text-white border-white/30 hover:bg-white/20"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  : "bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:opacity-90"
               }`}
               onClick={() => {
                 navigator.clipboard
@@ -36,7 +36,7 @@ export default function MessageBubble({ isOwn, message, timestamp, kind }) {
         ) : (
           <span className="whitespace-pre-wrap wrap-break-word">{message}</span>
         )}
-        <div className={`mt-1 text-[10px] text-right ${isOwn ? "text-white/80" : "text-slate-500"}`}>
+        <div className={`mt-1 text-[10px] text-right ${isOwn ? "text-white/80" : "text-[var(--muted)]"}`}>
           {timestamp}
         </div>
       </div>

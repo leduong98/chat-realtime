@@ -23,7 +23,7 @@ export default function EmojiPicker({ onPick, disabled }) {
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="p-2.5 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-50"
+        className="p-2.5 rounded-xl bg-[var(--amber-soft)] text-[var(--amber)] hover:opacity-90 transition-opacity disabled:opacity-50 border border-[var(--border)]"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         title="Emoji"
@@ -31,13 +31,13 @@ export default function EmojiPicker({ onPick, disabled }) {
         😊
       </button>
       {open ? (
-        <div className="absolute bottom-12 left-0 z-20 w-[260px] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/60">
+        <div className="absolute bottom-12 left-0 z-20 w-[260px] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-xl">
           <div className="grid grid-cols-10 gap-1">
             {EMOJIS.map((e) => (
               <button
                 key={e}
                 type="button"
-                className="h-9 w-9 rounded-xl hover:bg-slate-100 text-lg"
+                className="h-9 w-9 rounded-xl hover:bg-[var(--card-2)] text-lg"
                 onClick={() => {
                   if (onPick) onPick(e);
                 }}

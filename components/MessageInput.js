@@ -32,10 +32,10 @@ export default function MessageInput({
   }
 
   return (
-    <div className="flex items-end gap-2 border-t border-slate-200 pt-3 mt-3 bg-white rounded-2xl px-2 py-2">
+    <div className="flex items-end gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2">
       <button
         type="button"
-        className="p-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50"
+        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)]"
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
         title="Gửi ảnh (base64)"
@@ -64,11 +64,11 @@ export default function MessageInput({
           reader.readAsDataURL(file);
         }}
       />
-      <div className="flex-1 flex items-end bg-slate-100 rounded-2xl px-4 py-2 min-h-[44px]">
+      <div className="flex-1 flex items-end bg-[var(--card-2)] rounded-2xl px-4 py-2 min-h-[44px] border border-[var(--border)]">
         <textarea
           ref={textareaRef}
           rows={1}
-          className="flex-1 bg-transparent resize-none outline-none text-sm text-slate-800 placeholder:text-slate-400"
+          className="flex-1 bg-transparent resize-none outline-none text-sm text-[var(--fg)] placeholder:text-[var(--muted)]"
           placeholder={disabled ? "Chưa kết nối..." : "Nhập tin nhắn..."}
           value={value}
           disabled={disabled}
