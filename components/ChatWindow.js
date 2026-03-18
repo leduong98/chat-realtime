@@ -462,28 +462,28 @@ export default function ChatWindow() {
           {peers.length ? (
             <div className="space-y-2">
               {peers.map((p) => (
-                <div
-                  key={p.peerId}
-                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border ${
-                    p.peerId === activePeerId
-                      ? "bg-[var(--primary)] border-[var(--primary)] text-white"
-                      : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
-                  }`}
-                >
+                <div key={p.peerId} className="relative">
                   <button
                     type="button"
-                    className="min-w-0 text-left cursor-pointer"
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border cursor-pointer text-left ${
+                      p.peerId === activePeerId
+                        ? "bg-[var(--primary)] border-[var(--primary)] text-white"
+                        : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
+                    }`}
                     onClick={() => setActivePeerId(p.peerId)}
                     title={p.peerId}
                   >
-                    <div className="font-semibold leading-5 truncate">{p.alias}</div>
-                    <div
-                      className={`text-[11px] leading-4 ${
-                        p.peerId === activePeerId ? "text-white/70" : "text-[var(--muted)]"
-                      }`}
-                    >
-                      {p.peerId.slice(0, 8)}…
+                    <div className="min-w-0">
+                      <div className="font-semibold leading-5 truncate">{p.alias}</div>
+                      <div
+                        className={`text-[11px] leading-4 ${
+                          p.peerId === activePeerId ? "text-white/70" : "text-[var(--muted)]"
+                        }`}
+                      >
+                        {p.peerId.slice(0, 8)}…
+                      </div>
                     </div>
+                    <span className="sr-only">Mở chat</span>
                   </button>
                   <button
                     type="button"
@@ -492,8 +492,12 @@ export default function ChatWindow() {
                         ? "text-white/80 hover:text-white"
                         : "text-[var(--muted)] hover:text-red-500"
                     }`}
-                    onClick={() => removePeer(p.peerId)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removePeer(p.peerId);
+                    }}
                     title="Xóa khỏi danh sách"
+                    style={{ position: "absolute", right: 12, top: 10 }}
                   >
                     <X className="h-4 w-4" />
                   </button>
