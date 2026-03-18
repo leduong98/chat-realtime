@@ -319,7 +319,7 @@ export default function ChatWindow() {
   return (
     <div className="flex h-full gap-4">
       {/* Sidebar (left) */}
-      <aside className="w-[320px] shrink-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <aside className="flex-3 min-w-[280px] max-w-[380px] flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
         {/* Top row: user + actions */}
         <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-3 min-w-0">
@@ -466,7 +466,7 @@ export default function ChatWindow() {
       </aside>
 
       {/* Chat area (right) */}
-      <section className="flex-1 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <section className="flex-7 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
         {toast ? (
           <div className="mb-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             {toast}
