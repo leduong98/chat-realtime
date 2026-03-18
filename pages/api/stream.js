@@ -1,6 +1,6 @@
 /**
  * SSE stream endpoint.
- * - Holds connection max ~25s, then closes (client should reconnect).
+ * - Holds connection max ~60s, then closes (client should reconnect).
  * - Does NOT store messages.
  * - Only delivers messages to connections that are open right now.
  *
@@ -49,7 +49,7 @@ export default function handler(req, res) {
     } catch {
       // ignore
     }
-  }, 25000);
+  }, 60000);
 
   const cleanup = () => {
     clearTimeout(timeout);

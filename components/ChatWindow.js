@@ -21,6 +21,7 @@ export default function ChatWindow() {
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState("");
 
   const [peerIdInput, setPeerIdInput] = useState("");
   const [peerId, setPeerId] = useState("");
@@ -45,6 +46,15 @@ export default function ChatWindow() {
     const id = getOrCreateUserId();
     setUserId(id);
     setMounted(true);
+  }, []);
+
+  // Browser notification permission (best-effort)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
   }, []);
 
   async function handleCopyMyId() {
@@ -94,6 +104,26 @@ export default function ChatWindow() {
 
         setMessages((prev) => [...prev, item]);
         saveMessage(chatId, item);
+
+        // Toast in-app
+        setToast("Bạn có tin nhắn mới");
+        setTimeout(() => setToast(""), 1600);
+
+        // Browser notification when tab hidden
+        try {
+          if (
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            Notification.permission === "granted" &&
+            document.hidden
+          ) {
+            new Notification("Tin nhắn mới", {
+              body: msg.text || "",
+            });
+          }
+        } catch {
+          // ignore
+        }
 
         // Bonus: sound notification (best-effort)
         try {
@@ -191,6 +221,11 @@ export default function ChatWindow() {
 
   return (
     <div className="flex flex-col h-full">
+      {toast ? (
+        <div className="mb-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {toast}
+        </div>
+      ) : null}
       {/* Header */}
       <header className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
         <div className="flex items-center gap-3 min-w-0">
@@ -254,14 +289,6 @@ export default function ChatWindow() {
         >
           Connect
         </button>
-      </div>
-
-      {/* Warning */}
-      <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <div className="font-semibold mb-1">Cảnh báo</div>
-        <div>
-          This chat is ephemeral. Messages may be lost if the other user is offline.
-        </div>
       </div>
 
       {/* Messages */}
