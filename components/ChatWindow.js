@@ -20,6 +20,7 @@ function formatTime(ts) {
 export default function ChatWindow() {
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const [peerIdInput, setPeerIdInput] = useState("");
   const [peerId, setPeerId] = useState("");
@@ -45,6 +46,17 @@ export default function ChatWindow() {
     setUserId(id);
     setMounted(true);
   }, []);
+
+  async function handleCopyMyId() {
+    if (!userId) return;
+    try {
+      await navigator.clipboard.writeText(userId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      alert("Không copy được. Hãy copy thủ công userId.");
+    }
+  }
 
   // SSE connect & auto-reconnect
   useEffect(() => {
@@ -211,6 +223,18 @@ export default function ChatWindow() {
             />
             {status}
           </span>
+          <button
+            type="button"
+            className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
+              copied
+                ? "bg-green-100 text-green-700 border-green-200"
+                : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+            }`}
+            onClick={handleCopyMyId}
+            title="Copy userId để gửi cho người kia"
+          >
+            {copied ? "✅ Copied" : "📋 Copy ID"}
+          </button>
         </div>
       </header>
 
