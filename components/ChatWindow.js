@@ -421,7 +421,7 @@ export default function ChatWindow() {
                   key={p.peerId}
                   className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border ${
                     p.peerId === activePeerId
-                      ? "bg-green-50 border-green-200 text-green-800"
+                      ? "bg-[var(--primary)] border-[var(--primary)] text-white"
                       : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
                   }`}
                 >
@@ -432,13 +432,21 @@ export default function ChatWindow() {
                     title={p.peerId}
                   >
                     <div className="font-semibold leading-5 truncate">{p.alias}</div>
-                    <div className="text-[11px] text-[var(--muted)] leading-4">
+                    <div
+                      className={`text-[11px] leading-4 ${
+                        p.peerId === activePeerId ? "text-white/70" : "text-[var(--muted)]"
+                      }`}
+                    >
                       {p.peerId.slice(0, 8)}…
                     </div>
                   </button>
                   <button
                     type="button"
-                    className="text-[var(--muted)] hover:text-red-500 shrink-0 cursor-pointer"
+                    className={`shrink-0 cursor-pointer ${
+                      p.peerId === activePeerId
+                        ? "text-white/80 hover:text-white"
+                        : "text-[var(--muted)] hover:text-red-500"
+                    }`}
                     onClick={() => removePeer(p.peerId)}
                     title="Xóa khỏi danh sách"
                   >
