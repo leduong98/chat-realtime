@@ -6,6 +6,8 @@ import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import {
   getOrCreateUserId,
+  loadSelfName,
+  saveSelfName,
   loadMessages,
   saveMessage,
   saveMessages,
@@ -36,13 +38,15 @@ function formatTime(ts) {
 export default function ChatWindow() {
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [selfName, setSelfName] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
 
   const [peers, setPeers] = useState([]); // [{ peerId, alias, createdAt }]
   const [activePeerId, setActivePeerId] = useState("");
   const [newPeerId, setNewPeerId] = useState("");
-  const [newAlias, setNewAlias] = useState("");
+  const [newMyName, setNewMyName] = useState("");
+  const [newPeerName, setNewPeerName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
   const [messages, setMessages] = useState([]);
@@ -99,6 +103,8 @@ export default function ChatWindow() {
     setPeers(list);
     const active = loadActivePeer();
     if (active) setActivePeerId(active);
+    const n = loadSelfName();
+    if (n) setSelfName(n);
   }, []);
 
   // Browser notification permission (best-effort)
@@ -141,6 +147,32 @@ export default function ChatWindow() {
           setPeerTyping(true);
           if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
           peerTypingTimeoutRef.current = setTimeout(() => setPeerTyping(false), 1200);
+          return;
+        }
+
+        if (msg.type === "invite") {
+          const fromId = msg.fromId;
+          const inviterName = String(msg.data?.inviterName || "").trim();
+          const inviteeName = String(msg.data?.inviteeName || "").trim();
+          if (!fromId || !inviterName || !inviteeName) return;
+
+          // Set my name as chosen by inviter (first connector)
+          saveSelfName(inviteeName);
+          setSelfName(inviteeName);
+
+          // Auto-add / update peer with inviter's chosen name
+          setPeers((prev) => {
+            const exists = prev.some((p) => p.peerId === fromId);
+            const next = exists
+              ? prev.map((p) => (p.peerId === fromId ? { ...p, alias: inviterName } : p))
+              : [{ peerId: fromId, alias: inviterName, createdAt: Date.now() }, ...prev];
+            savePeers(next);
+            return next;
+          });
+
+          setActivePeerId(fromId);
+          setToast(`Đã thêm kết nối: ${inviterName}`);
+          setTimeout(() => setToast(""), 1600);
           return;
         }
 
@@ -384,22 +416,43 @@ export default function ChatWindow() {
 
   function addPeer() {
     const pid = (newPeerId || "").trim();
-    const alias = (newAlias || "").trim();
+    const myName = (newMyName || "").trim();
+    const peerName = (newPeerName || "").trim();
     if (!pid) return;
     if (pid === userId) {
       alert("Không thể connect chính mình.");
       return;
     }
+
+    if (myName) {
+      saveSelfName(myName);
+      setSelfName(myName);
+    }
+
     const exists = peers.some((p) => p.peerId === pid);
     const next = exists
-      ? peers.map((p) => (p.peerId === pid ? { ...p, alias: alias || p.alias } : p))
-      : [{ peerId: pid, alias: alias || pid.slice(0, 8), createdAt: Date.now() }, ...peers];
+      ? peers.map((p) => (p.peerId === pid ? { ...p, alias: peerName || p.alias } : p))
+      : [{ peerId: pid, alias: peerName || pid.slice(0, 8), createdAt: Date.now() }, ...peers];
     setPeers(next);
     savePeers(next);
     setActivePeerId(pid);
     setNewPeerId("");
-    setNewAlias("");
+    setNewMyName("");
+    setNewPeerName("");
     setShowAdd(false);
+
+    // One-way connect: send invite so receiver auto-adds me + sets their name
+    sendMessage({
+      fromId: userId,
+      toId: pid,
+      text: "",
+      timestamp: Date.now(),
+      type: "invite",
+      data: {
+        inviterName: myName || selfName || "Bạn",
+        inviteeName: peerName || "Bạn",
+      },
+    }).catch(() => {});
   }
 
   function removePeer(pid) {
@@ -436,6 +489,9 @@ export default function ChatWindow() {
             <div className="min-w-0">
               <div className="text-xs text-[var(--muted)]">User ID</div>
               <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
+              {selfName ? (
+                <div className="text-[11px] text-[var(--muted)] truncate">Tên: {selfName}</div>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
@@ -508,7 +564,8 @@ export default function ChatWindow() {
                 onClick={() => {
                   setShowAdd(false);
                   setNewPeerId("");
-                  setNewAlias("");
+                  setNewMyName("");
+                  setNewPeerName("");
                 }}
                 title="Đóng"
               >
@@ -526,9 +583,16 @@ export default function ChatWindow() {
               <input
                 type="text"
                 className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="Biệt danh (vd: ABC)"
-                value={newAlias}
-                onChange={(e) => setNewAlias(e.target.value)}
+                placeholder="Tên của bạn (vd: ABC)"
+                value={newMyName}
+                onChange={(e) => setNewMyName(e.target.value)}
+              />
+              <input
+                type="text"
+                className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
+                placeholder="Tên của họ (vd: XYZ)"
+                value={newPeerName}
+                onChange={(e) => setNewPeerName(e.target.value)}
               />
               <button
                 type="button"

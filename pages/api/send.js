@@ -25,6 +25,11 @@ export default async function handler(req, res) {
     if (typeof message !== "string") return res.status(400).json({ error: "Invalid payload" });
   } else if (t === "typing") {
     // allow empty message
+  } else if (t === "invite") {
+    if (!data || typeof data !== "object") return res.status(400).json({ error: "Invalid payload" });
+    if (typeof data.inviterName !== "string" || typeof data.inviteeName !== "string") {
+      return res.status(400).json({ error: "Invalid payload" });
+    }
   } else if (t === "ack") {
     if (!data || typeof data !== "object") return res.status(400).json({ error: "Invalid payload" });
     if (!data.targetMessageId || (data.status !== "delivered" && data.status !== "seen")) {
