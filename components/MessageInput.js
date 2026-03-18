@@ -1,13 +1,16 @@
 import { useEffect, useRef } from "react";
+import EmojiPicker from "./EmojiPicker";
 
 export default function MessageInput({
   value,
   onChange,
   onSend,
   onTyping,
+  onSendImage,
   disabled,
 }) {
   const textareaRef = useRef(null);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -30,6 +33,37 @@ export default function MessageInput({
 
   return (
     <div className="flex items-end gap-2 border-t border-slate-200 pt-3 mt-3 bg-white rounded-2xl px-2 py-2">
+      <button
+        type="button"
+        className="p-2.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors disabled:opacity-50"
+        onClick={() => fileRef.current?.click()}
+        disabled={disabled}
+        title="Gửi ảnh (base64)"
+      >
+        🖼️
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+          const maxSize = 300 * 1024; // ~300KB để tránh payload quá lớn
+          if (file.size > maxSize) {
+            alert("Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn ~300KB.");
+            e.target.value = "";
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (onSendImage) onSendImage(String(reader.result || ""));
+            e.target.value = "";
+          };
+          reader.readAsDataURL(file);
+        }}
+      />
       <div className="flex-1 flex items-end bg-slate-100 rounded-2xl px-4 py-2 min-h-[44px]">
         <textarea
           ref={textareaRef}
@@ -45,6 +79,13 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
         />
       </div>
+      <EmojiPicker
+        disabled={disabled}
+        onPick={(emoji) => {
+          onChange((value || "") + emoji);
+          if (onTyping) onTyping();
+        }}
+      />
       <button
         type="button"
         className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] disabled:opacity-50 transition-all"

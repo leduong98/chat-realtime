@@ -119,6 +119,7 @@ export default function ChatWindow() {
           senderId: msg.fromId,
           message: msg.text,
           timestamp: msg.timestamp,
+          kind: msg.kind || (String(msg.text || "").startsWith("data:image/") ? "image" : "text"),
         };
 
         setMessages((prev) => [...prev, item]);
@@ -215,6 +216,7 @@ export default function ChatWindow() {
       senderId: userId,
       message: text,
       timestamp: Date.now(),
+      kind: "text",
     };
 
     setMessages((prev) => [...prev, local]);
@@ -228,6 +230,33 @@ export default function ChatWindow() {
       text,
       timestamp: local.timestamp,
       type: "message",
+    }).catch(() => {});
+  }
+
+  async function handleSendImage(dataUrl) {
+    const text = String(dataUrl || "");
+    if (!text.startsWith("data:image/")) return;
+    if (!userId || !activePeerId) return;
+
+    const local = {
+      id: uuidv4(),
+      chatId: activePeerId,
+      senderId: userId,
+      message: text,
+      timestamp: Date.now(),
+      kind: "image",
+    };
+
+    setMessages((prev) => [...prev, local]);
+    saveMessage(activePeerId, local);
+
+    sendMessage({
+      fromId: userId,
+      toId: activePeerId,
+      text,
+      timestamp: local.timestamp,
+      type: "message",
+      kind: "image",
     }).catch(() => {});
   }
 
@@ -423,6 +452,7 @@ export default function ChatWindow() {
             isOwn={m.senderId === userId}
             message={m.message}
             timestamp={formatTime(m.timestamp)}
+            kind={m.kind}
           />
         ))}
         {peerTyping && (
@@ -440,6 +470,7 @@ export default function ChatWindow() {
         onChange={setInput}
         onSend={handleSend}
         onTyping={handleTyping}
+        onSendImage={handleSendImage}
         disabled={status !== "connected"}
       />
     </div>
