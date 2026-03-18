@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Smile } from "lucide-react";
 
 const EMOJIS = [
   "😀","😁","😂","🤣","😊","😍","😘","😎","🤔","😭",
@@ -23,12 +24,12 @@ export default function EmojiPicker({ onPick, disabled }) {
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="p-2.5 rounded-xl bg-[var(--amber-soft)] text-[var(--amber)] hover:opacity-90 transition-opacity disabled:opacity-50 border border-[var(--border)]"
+        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)]"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         title="Emoji"
       >
-        😊
+        <Smile className="h-5 w-5" />
       </button>
       {open ? (
         <div className="absolute bottom-12 left-0 z-20 w-[260px] rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-xl">

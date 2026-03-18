@@ -16,6 +16,15 @@ import {
 import { createSseClient } from "../lib/sseClient";
 import { sendMessage } from "../lib/api";
 import { applyTheme, getInitialTheme, saveTheme } from "../lib/theme";
+import {
+  Check,
+  ClipboardCopy,
+  Moon,
+  Plus,
+  Sun,
+  User,
+  X,
+} from "lucide-react";
 
 function formatTime(ts) {
   try {
@@ -323,8 +332,8 @@ export default function ChatWindow() {
         {/* Top row: user + actions */}
         <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--amber-soft)] flex items-center justify-center text-[var(--amber)] text-lg">
-              👤
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--card-2)] border border-[var(--border)] flex items-center justify-center text-[var(--muted)]">
+              <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <div className="text-xs text-[var(--muted)]">User ID</div>
@@ -342,7 +351,10 @@ export default function ChatWindow() {
               onClick={handleCopyMyId}
               title="Copy userId để gửi cho người kia"
             >
-              {copied ? "✅ Copied" : "📋 Copy ID"}
+              <span className="inline-flex items-center gap-2">
+                {copied ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
+                <span>{copied ? "Copied" : "Copy"}</span>
+              </span>
             </button>
             <button
               type="button"
@@ -350,7 +362,10 @@ export default function ChatWindow() {
               onClick={toggleTheme}
               title="Đổi giao diện sáng/tối"
             >
-              {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
+              <span className="inline-flex items-center gap-2">
+                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                <span>{theme === "dark" ? "Dark" : "Light"}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -387,10 +402,13 @@ export default function ChatWindow() {
           </div>
           <button
             type="button"
-            className="px-3 py-2 rounded-xl bg-[var(--amber-soft)] text-[var(--amber)] text-xs font-semibold hover:opacity-90 transition-opacity"
+            className="px-3 py-2 rounded-xl bg-[var(--card-2)] text-[var(--fg)] text-xs font-semibold hover:bg-[var(--card)] transition-colors border border-[var(--border)]"
             onClick={() => setShowAdd((v) => !v)}
           >
-            ➕ Kết nối mới
+            <span className="inline-flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Kết nối mới
+            </span>
           </button>
         </div>
 
@@ -452,7 +470,7 @@ export default function ChatWindow() {
                     onClick={() => removePeer(p.peerId)}
                     title="Xóa khỏi danh sách"
                   >
-                    ✕
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ))}

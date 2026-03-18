@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import EmojiPicker from "./EmojiPicker";
+import { Image as ImageIcon, SendHorizonal } from "lucide-react";
 
 export default function MessageInput({
   value,
@@ -40,7 +41,7 @@ export default function MessageInput({
         disabled={disabled}
         title="Gửi ảnh (base64)"
       >
-        🖼️
+        <ImageIcon className="h-5 w-5" />
       </button>
       <input
         ref={fileRef}
@@ -88,10 +89,11 @@ export default function MessageInput({
       />
       <button
         type="button"
-        className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] disabled:opacity-50 transition-all"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-sm hover:bg-[#16a34a] disabled:opacity-50 transition-colors"
         onClick={onSend}
         disabled={disabled || !value.trim()}
       >
+        <SendHorizonal className="h-4 w-4" />
         Gửi
       </button>
     </div>

@@ -11,8 +11,6 @@
   --shadow: 226 232 240;
   --primary: #22c55e;
   --primary-hover: #16a34a;
-  --amber: #f59e0b;
-  --amber-soft: #fef3c7;
 }
 
 [data-theme="dark"] {
@@ -26,8 +24,6 @@
   --shadow: 0 0 0;
   --primary: #22c55e;
   --primary-hover: #16a34a;
-  --amber: #f59e0b;
-  --amber-soft: #3b2f0a;
 }
 
 @theme inline {
