@@ -501,6 +501,20 @@ export default function ChatWindow() {
 
         {showAdd ? (
           <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <div className="flex items-center justify-end mb-2">
+              <button
+                type="button"
+                className="p-2 rounded-xl border border-[var(--border)] bg-[var(--card-2)] text-[var(--muted)] hover:bg-[var(--card)] hover:text-[var(--fg)] transition-colors cursor-pointer"
+                onClick={() => {
+                  setShowAdd(false);
+                  setNewPeerId("");
+                  setNewAlias("");
+                }}
+                title="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <div className="grid grid-cols-1 gap-2">
               <input
                 type="text"
@@ -512,7 +526,7 @@ export default function ChatWindow() {
               <input
                 type="text"
                 className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="Biệt danh (vd: Tiệp)"
+                placeholder="Biệt danh (vd: ABC)"
                 value={newAlias}
                 onChange={(e) => setNewAlias(e.target.value)}
               />
