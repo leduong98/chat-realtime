@@ -53,6 +53,8 @@ export default function ChatWindow() {
   const sseRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
   const bottomRef = useRef(null);
+  const baseTitleRef = useRef(null);
+  const titleNoticeRef = useRef(null); // { peerId, label }
 
   const status = useMemo(() => {
     if (!activePeerId) return "disconnected";
@@ -65,6 +67,30 @@ export default function ChatWindow() {
     const id = getOrCreateUserId();
     setUserId(id);
     setMounted(true);
+  }, []);
+
+  // Base tab title + reset on focus/visibility
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!baseTitleRef.current) baseTitleRef.current = document.title || "PI-Chat";
+
+    const reset = () => {
+      if (!baseTitleRef.current) return;
+      titleNoticeRef.current = null;
+      document.title = baseTitleRef.current;
+    };
+
+    const onVis = () => {
+      if (!document.hidden) reset();
+    };
+    const onFocus = () => reset();
+
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   // Load saved peer list + active peer
@@ -135,6 +161,20 @@ export default function ChatWindow() {
         if (msg.type !== "message") return;
 
         const chatId = msg.fromId;
+        // Tab title notify for new incoming message
+        try {
+          if (typeof document !== "undefined" && baseTitleRef.current) {
+            const alias = peers.find((p) => p.peerId === chatId)?.alias || chatId.slice(0, 8);
+            const label = alias.length > 10 ? `${alias.slice(0, 10)}…` : alias;
+            if (document.hidden || activePeerId !== chatId) {
+              titleNoticeRef.current = { peerId: chatId, label };
+              document.title = `(${label}) ${baseTitleRef.current}`;
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         const item = {
           id: msg.id || uuidv4(),
           chatId,
@@ -227,6 +267,17 @@ export default function ChatWindow() {
     if (!activePeerId) return;
     setMessages(loadMessages(activePeerId));
     saveActivePeer(activePeerId);
+  }, [activePeerId]);
+
+  // Nếu đang có thông báo trên title và user mở đúng session đó -> reset title
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!baseTitleRef.current) return;
+    const n = titleNoticeRef.current;
+    if (n && n.peerId === activePeerId && !document.hidden) {
+      titleNoticeRef.current = null;
+      document.title = baseTitleRef.current;
+    }
   }, [activePeerId]);
 
   function scrollToBottom(behavior) {
