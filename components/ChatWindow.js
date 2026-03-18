@@ -15,13 +15,10 @@ import {
 } from "../lib/storage";
 import { createSseClient } from "../lib/sseClient";
 import { sendMessage } from "../lib/api";
-import { applyTheme, getInitialTheme, saveTheme } from "../lib/theme";
 import {
   Check,
   ClipboardCopy,
-  Moon,
   Plus,
-  Sun,
   User,
   X,
 } from "lucide-react";
@@ -40,7 +37,6 @@ export default function ChatWindow() {
   const [userId, setUserId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
-  const [theme, setTheme] = useState("light");
 
   const [peers, setPeers] = useState([]); // [{ peerId, alias, createdAt }]
   const [activePeerId, setActivePeerId] = useState("");
@@ -69,19 +65,6 @@ export default function ChatWindow() {
     setUserId(id);
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    const t = getInitialTheme();
-    setTheme(t);
-    applyTheme(t);
-  }, []);
-
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    applyTheme(next);
-    saveTheme(next);
-  }
 
   // Load saved peer list + active peer
   useEffect(() => {
@@ -347,24 +330,13 @@ export default function ChatWindow() {
                 copied
                   ? "bg-green-100 text-green-700 border-green-200"
                   : "bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
-              }`}
+              } cursor-pointer`}
               onClick={handleCopyMyId}
               title="Copy userId để gửi cho người kia"
             >
               <span className="inline-flex items-center gap-2">
                 {copied ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
                 <span>{copied ? "Copied" : "Copy"}</span>
-              </span>
-            </button>
-            <button
-              type="button"
-              className="px-3 py-2 rounded-xl text-xs font-semibold transition-colors border bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
-              onClick={toggleTheme}
-              title="Đổi giao diện sáng/tối"
-            >
-              <span className="inline-flex items-center gap-2">
-                {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-                <span>{theme === "dark" ? "Dark" : "Light"}</span>
               </span>
             </button>
           </div>
@@ -402,7 +374,7 @@ export default function ChatWindow() {
           </div>
           <button
             type="button"
-            className="px-3 py-2 rounded-xl bg-[var(--card-2)] text-[var(--fg)] text-xs font-semibold hover:bg-[var(--card)] transition-colors border border-[var(--border)]"
+            className="px-3 py-2 rounded-xl bg-[var(--card-2)] text-[var(--fg)] text-xs font-semibold hover:bg-[var(--card)] transition-colors border border-[var(--border)] cursor-pointer"
             onClick={() => setShowAdd((v) => !v)}
           >
             <span className="inline-flex items-center gap-2">
@@ -431,7 +403,7 @@ export default function ChatWindow() {
               />
               <button
                 type="button"
-                className="px-5 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] transition-colors"
+                className="px-5 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] transition-colors cursor-pointer"
                 onClick={addPeer}
               >
                 Thêm & mở chat
@@ -455,7 +427,7 @@ export default function ChatWindow() {
                 >
                   <button
                     type="button"
-                    className="min-w-0 text-left"
+                    className="min-w-0 text-left cursor-pointer"
                     onClick={() => setActivePeerId(p.peerId)}
                     title={p.peerId}
                   >
@@ -466,7 +438,7 @@ export default function ChatWindow() {
                   </button>
                   <button
                     type="button"
-                    className="text-[var(--muted)] hover:text-red-500 shrink-0"
+                    className="text-[var(--muted)] hover:text-red-500 shrink-0 cursor-pointer"
                     onClick={() => removePeer(p.peerId)}
                     title="Xóa khỏi danh sách"
                   >

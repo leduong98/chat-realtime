@@ -36,7 +36,7 @@ export default function MessageInput({
     <div className="flex items-end gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2">
       <button
         type="button"
-        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)]"
+        className="p-2.5 rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)] cursor-pointer"
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
         title="Gửi ảnh (base64)"
@@ -89,7 +89,7 @@ export default function MessageInput({
       />
       <button
         type="button"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors cursor-pointer"
         onClick={onSend}
         disabled={disabled || !value.trim()}
       >
