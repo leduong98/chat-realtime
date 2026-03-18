@@ -1,4 +1,34 @@
-export default function MessageBubble({ isOwn, message, timestamp, kind }) {
+import { Check, CheckCheck } from "lucide-react";
+
+function Status({ status }) {
+  if (!status || status === "sent") {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Check className="h-3.5 w-3.5" />
+        <span>Đã gửi</span>
+      </span>
+    );
+  }
+  if (status === "delivered") {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <CheckCheck className="h-3.5 w-3.5" />
+        <span>Đã nhận</span>
+      </span>
+    );
+  }
+  if (status === "seen") {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <CheckCheck className="h-3.5 w-3.5" />
+        <span>Đã xem</span>
+      </span>
+    );
+  }
+  return null;
+}
+
+export default function MessageBubble({ isOwn, message, timestamp, kind, status }) {
   const isImage = kind === "image" || String(message || "").startsWith("data:image/");
   return (
     <div className={`flex mb-3 ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -36,8 +66,13 @@ export default function MessageBubble({ isOwn, message, timestamp, kind }) {
         ) : (
           <span className="whitespace-pre-wrap wrap-break-word">{message}</span>
         )}
-        <div className={`mt-1 text-[10px] text-right ${isOwn ? "text-white/80" : "text-[var(--muted)]"}`}>
-          {timestamp}
+        <div
+          className={`mt-1 text-[10px] flex items-center justify-end gap-2 ${
+            isOwn ? "text-white/80" : "text-[var(--muted)]"
+          }`}
+        >
+          <span>{timestamp}</span>
+          {isOwn ? <Status status={status} /> : null}
         </div>
       </div>
     </div>

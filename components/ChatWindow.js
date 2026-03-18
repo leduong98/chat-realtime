@@ -8,6 +8,7 @@ import {
   getOrCreateUserId,
   loadMessages,
   saveMessage,
+  saveMessages,
   loadPeers,
   savePeers,
   loadActivePeer,
@@ -117,6 +118,20 @@ export default function ChatWindow() {
           return;
         }
 
+        if (msg.type === "ack") {
+          const chatId = msg.fromId;
+          const targetId = msg.data?.targetMessageId;
+          const st = msg.data?.status;
+          if (!chatId || !targetId || (st !== "delivered" && st !== "seen")) return;
+
+          setMessages((prev) => {
+            const next = prev.map((m) => (m && m.id === targetId ? { ...m, status: st } : m));
+            saveMessages(chatId, next);
+            return next;
+          });
+          return;
+        }
+
         if (msg.type !== "message") return;
 
         const chatId = msg.fromId;
@@ -131,6 +146,32 @@ export default function ChatWindow() {
 
         setMessages((prev) => [...prev, item]);
         saveMessage(chatId, item);
+
+        // ACK delivered back to sender (best-effort)
+        sendMessage({
+          fromId: userId,
+          toId: msg.fromId,
+          text: "",
+          timestamp: Date.now(),
+          type: "ack",
+          data: { targetMessageId: item.id, status: "delivered" },
+        }).catch(() => {});
+
+        // ACK seen if đang mở đúng đoạn chat và tab đang active
+        try {
+          if (!document.hidden && activePeerId === msg.fromId) {
+            sendMessage({
+              fromId: userId,
+              toId: msg.fromId,
+              text: "",
+              timestamp: Date.now(),
+              type: "ack",
+              data: { targetMessageId: item.id, status: "seen" },
+            }).catch(() => {});
+          }
+        } catch {
+          // ignore
+        }
 
         // Toast in-app
         setToast("Bạn có tin nhắn mới");
@@ -224,6 +265,7 @@ export default function ChatWindow() {
       message: text,
       timestamp: Date.now(),
       kind: "text",
+      status: "sent",
     };
 
     setMessages((prev) => [...prev, local]);
@@ -252,6 +294,7 @@ export default function ChatWindow() {
       message: text,
       timestamp: Date.now(),
       kind: "image",
+      status: "sent",
     };
 
     setMessages((prev) => [...prev, local]);
@@ -494,12 +537,13 @@ export default function ChatWindow() {
               message={m.message}
               timestamp={formatTime(m.timestamp)}
               kind={m.kind}
+              status={m.status}
             />
           ))}
           {peerTyping && (
-            <div className="text-xs text-amber-600 italic mb-2 flex items-center gap-1">
-              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              Đang nhập...
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[11px] text-[var(--muted)]">
+              <span className="inline-block w-2 h-2 rounded-full bg-[var(--primary)]/70 animate-pulse" />
+              <span className="font-medium">Đang nhập…</span>
             </div>
           )}
           <div ref={bottomRef} />
