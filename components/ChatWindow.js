@@ -152,7 +152,7 @@ export default function ChatWindow() {
 
           setMessages((prev) => {
             const next = prev.map((m) => (m && m.id === targetId ? { ...m, status: st } : m));
-            saveMessages(chatId, next);
+            saveMessages(chatId, next).catch(() => {});
             return next;
           });
           return;
@@ -185,7 +185,7 @@ export default function ChatWindow() {
         };
 
         setMessages((prev) => [...prev, item]);
-        saveMessage(chatId, item);
+        saveMessage(chatId, item).catch(() => {});
 
         // ACK delivered back to sender (best-effort)
         sendMessage({
@@ -265,8 +265,16 @@ export default function ChatWindow() {
   // Load local history when selecting peer
   useEffect(() => {
     if (!activePeerId) return;
-    setMessages(loadMessages(activePeerId));
-    saveActivePeer(activePeerId);
+    let alive = true;
+    (async () => {
+      const list = await loadMessages(activePeerId);
+      if (!alive) return;
+      setMessages(list);
+      saveActivePeer(activePeerId);
+    })();
+    return () => {
+      alive = false;
+    };
   }, [activePeerId]);
 
   // Nếu đang có thông báo trên title và user mở đúng session đó -> reset title
@@ -331,7 +339,7 @@ export default function ChatWindow() {
     };
 
     setMessages((prev) => [...prev, local]);
-    saveMessage(activePeerId, local);
+    saveMessage(activePeerId, local).catch(() => {});
     setInput("");
 
     // Ephemeral send: no delivery guarantee if peer offline (no open SSE)
@@ -361,7 +369,7 @@ export default function ChatWindow() {
     };
 
     setMessages((prev) => [...prev, local]);
-    saveMessage(activePeerId, local);
+    saveMessage(activePeerId, local).catch(() => {});
 
     sendMessage({
       fromId: userId,
