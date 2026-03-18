@@ -29,8 +29,11 @@ Mở trình duyệt tại `http://localhost:3000`.
 1. Mở `http://localhost:3000/chat` trên **máy A** và **máy B** (cùng LAN hoặc deploy lên Vercel).
 2. Mỗi máy sẽ có **userId** (random) hiển thị trên header.
 3. Để chat 1-1:
-   - Người A gửi `userId` cho người B (qua bất kỳ kênh nào).
-   - Người B nhập `peerId` (userId của A) rồi bấm **Connect**.
+   - Người A gửi `userId` cho người B và ngược lại (qua bất kỳ kênh nào).
+   - **Cả 2 máy đều phải thêm peer của nhau**:
+     - Máy A: nhập `peerId` = `userId` của máy B → bấm **Kết nối mới** → **Thêm & mở chat**
+     - Máy B: nhập `peerId` = `userId` của máy A → bấm **Kết nối mới** → **Thêm & mở chat**
+   - Lý do: message gửi theo `toId` nên nếu chỉ 1 bên thêm peer thì chỉ chat 1 chiều.
 4. **Quan trọng (ephemeral):**
    - Server **không lưu message**.
    - Server chỉ đẩy message nếu người nhận đang mở SSE (`/api/stream`) tại thời điểm gửi.
