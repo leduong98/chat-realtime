@@ -279,6 +279,7 @@ export default function ChatWindow() {
       text,
       timestamp: local.timestamp,
       type: "message",
+      clientMessageId: local.id,
     }).catch(() => {});
   }
 
@@ -307,6 +308,7 @@ export default function ChatWindow() {
       timestamp: local.timestamp,
       type: "message",
       kind: "image",
+      clientMessageId: local.id,
     }).catch(() => {});
   }
 

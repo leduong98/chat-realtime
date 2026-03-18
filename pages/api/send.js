@@ -1,6 +1,6 @@
 /**
  * POST /api/send
- * body: { fromId, toId, message, timestamp, type, kind, data }
+ * body: { fromId, toId, message, timestamp, type, kind, data, clientMessageId }
  *
  * - No DB, no persistence.
  * - Broadcast only if receiver currently has an open SSE stream.
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { fromId, toId, message, timestamp, type, kind, data } = req.body || {};
+  const { fromId, toId, message, timestamp, type, kind, data, clientMessageId } = req.body || {};
   if (!fromId || !toId || !timestamp) {
     return res.status(400).json({ error: "Invalid payload" });
   }
@@ -32,8 +32,13 @@ export default async function handler(req, res) {
     }
   }
 
+  const id =
+    t === "message" && typeof clientMessageId === "string" && clientMessageId.trim()
+      ? clientMessageId.trim()
+      : crypto.randomUUID();
+
   const payload = {
-    id: crypto.randomUUID(),
+    id,
     fromId,
     toId,
     text: typeof message === "string" ? message : "",
