@@ -317,24 +317,47 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {toast ? (
-        <div className="mb-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {toast}
-        </div>
-      ) : null}
-      {/* Header */}
-      <header className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--amber-soft)] flex items-center justify-center text-[var(--amber)] text-lg">
-            👤
+    <div className="flex h-full gap-4">
+      {/* Sidebar (left) */}
+      <aside className="w-[320px] shrink-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
+        {/* Top row: user + actions */}
+        <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--amber-soft)] flex items-center justify-center text-[var(--amber)] text-lg">
+              👤
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-[var(--muted)]">User ID</div>
+              <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="text-xs text-[var(--muted)]">User ID</div>
-            <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
+          <div className="flex flex-col gap-2 items-end">
+            <button
+              type="button"
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
+                copied
+                  ? "bg-green-100 text-green-700 border-green-200"
+                  : "bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
+              }`}
+              onClick={handleCopyMyId}
+              title="Copy userId để gửi cho người kia"
+            >
+              {copied ? "✅ Copied" : "📋 Copy ID"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded-xl text-xs font-semibold transition-colors border bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
+              onClick={toggleTheme}
+              title="Đổi giao diện sáng/tối"
+            >
+              {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Status */}
+        <div className="mt-3 flex items-center justify-between">
+          <div className="text-xs text-[var(--muted)]">Trạng thái</div>
           <span
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
               status === "connected"
@@ -355,37 +378,12 @@ export default function ChatWindow() {
             />
             {status}
           </span>
-          <button
-            type="button"
-            className={`px-3 py-2 rounded-xl text-xs font-semibold transition-colors border ${
-              copied
-                ? "bg-green-100 text-green-700 border-green-200"
-                : "bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
-            }`}
-            onClick={handleCopyMyId}
-            title="Copy userId để gửi cho người kia"
-          >
-            {copied ? "✅ Copied" : "📋 Copy ID"}
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 rounded-xl text-xs font-semibold transition-colors border bg-[var(--card-2)] text-[var(--fg)] border-[var(--border)] hover:bg-[var(--card)]"
-            onClick={toggleTheme}
-            title="Đổi giao diện sáng/tối"
-          >
-            {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
-          </button>
         </div>
-      </header>
 
-      {/* Peers */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between gap-2 mb-2">
+        {/* Active peer header */}
+        <div className="mt-4 flex items-center justify-between gap-2">
           <div className="text-sm font-semibold text-[var(--muted)]">
-            Đang chat với:{" "}
-            <span className="text-[var(--fg)]">
-              {activePeer ? activePeer.alias : "Chưa chọn"}
-            </span>
+            Đoạn chat
           </div>
           <button
             type="button"
@@ -397,8 +395,8 @@ export default function ChatWindow() {
         </div>
 
         {showAdd ? (
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <div className="grid grid-cols-1 gap-2">
               <input
                 type="text"
                 className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
@@ -409,7 +407,7 @@ export default function ChatWindow() {
               <input
                 type="text"
                 className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="Biệt danh (vd: Anh A)"
+                placeholder="Biệt danh (vd: Tiệp)"
                 value={newAlias}
                 onChange={(e) => setNewAlias(e.target.value)}
               />
@@ -421,81 +419,104 @@ export default function ChatWindow() {
                 Thêm & mở chat
               </button>
             </div>
-            <div className="mt-2 text-xs text-[var(--muted)]">
-              Gợi ý: người kia bấm “Copy ID” và gửi cho bạn.
-            </div>
           </div>
         ) : null}
 
-        {peers.length ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {peers.map((p) => (
-              <div
-                key={p.peerId}
-                className={`flex items-center gap-2 px-3 py-2 rounded-2xl border text-sm ${
-                  p.peerId === activePeerId
-                    ? "bg-green-50 border-green-200 text-green-800"
-                    : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
-                }`}
-              >
-                <button
-                  type="button"
-                  className="text-left"
-                  onClick={() => setActivePeerId(p.peerId)}
-                  title={p.peerId}
+        {/* Peer list */}
+        <div className="mt-3 flex-1 overflow-y-auto pr-1">
+          {peers.length ? (
+            <div className="space-y-2">
+              {peers.map((p) => (
+                <div
+                  key={p.peerId}
+                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border ${
+                    p.peerId === activePeerId
+                      ? "bg-green-50 border-green-200 text-green-800"
+                      : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
+                  }`}
                 >
-                  <div className="font-semibold leading-4">{p.alias}</div>
-                  <div className="text-[11px] text-[var(--muted)] leading-4">
-                    {p.peerId.slice(0, 8)}…
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  className="text-[var(--muted)] hover:text-red-500"
-                  onClick={() => removePeer(p.peerId)}
-                  title="Xóa khỏi danh sách"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-[var(--muted)]">
-            Chưa có kết nối nào. Bấm “Kết nối mới” để thêm peer.
-          </div>
-        )}
-      </div>
+                  <button
+                    type="button"
+                    className="min-w-0 text-left"
+                    onClick={() => setActivePeerId(p.peerId)}
+                    title={p.peerId}
+                  >
+                    <div className="font-semibold leading-5 truncate">{p.alias}</div>
+                    <div className="text-[11px] text-[var(--muted)] leading-4">
+                      {p.peerId.slice(0, 8)}…
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[var(--muted)] hover:text-red-500 shrink-0"
+                    onClick={() => removePeer(p.peerId)}
+                    title="Xóa khỏi danh sách"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-[var(--muted)]">
+              Chưa có kết nối nào. Bấm “Kết nối mới” để thêm peer.
+            </div>
+          )}
+        </div>
+      </aside>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-[var(--card)]/50 rounded-2xl p-3 min-h-0 border border-[var(--border)]">
-        {messages.map((m) => (
-          <MessageBubble
-            key={m.id}
-            isOwn={m.senderId === userId}
-            message={m.message}
-            timestamp={formatTime(m.timestamp)}
-            kind={m.kind}
-          />
-        ))}
-        {peerTyping && (
-          <div className="text-xs text-amber-600 italic mb-2 flex items-center gap-1">
-            <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            Đang nhập...
+      {/* Chat area (right) */}
+      <section className="flex-1 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
+        {toast ? (
+          <div className="mb-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {toast}
           </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+        ) : null}
 
-      {/* Input */}
-      <MessageInput
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        onTyping={handleTyping}
-        onSendImage={handleSendImage}
-        disabled={status !== "connected"}
-      />
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-xs text-[var(--muted)]">Đang chat với</div>
+            <div className="font-semibold text-[var(--fg)] truncate">
+              {activePeer ? activePeer.alias : "Chưa chọn peer"}
+            </div>
+          </div>
+          {activePeer ? (
+            <div className="text-xs text-[var(--muted)] truncate max-w-[260px]" title={activePeer.peerId}>
+              {activePeer.peerId}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-[var(--card)]/50 rounded-2xl p-3 min-h-0 border border-[var(--border)]">
+          {messages.map((m) => (
+            <MessageBubble
+              key={m.id}
+              isOwn={m.senderId === userId}
+              message={m.message}
+              timestamp={formatTime(m.timestamp)}
+              kind={m.kind}
+            />
+          ))}
+          {peerTyping && (
+            <div className="text-xs text-amber-600 italic mb-2 flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Đang nhập...
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <MessageInput
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onTyping={handleTyping}
+          onSendImage={handleSendImage}
+          disabled={status !== "connected"}
+        />
+      </section>
     </div>
   );
 }
