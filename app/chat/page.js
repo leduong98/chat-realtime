@@ -8,9 +8,9 @@ export default function ChatPage() {
       <div className="w-[80vw] max-w-6xl rounded-3xl bg-[var(--card)] shadow-xl border border-[var(--border)] overflow-hidden">
         <div className="px-5 py-4 border-b border-[var(--border)] bg-[var(--card)] flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-[var(--fg)]">SSE 1-1 Chat</h1>
+            <h1 className="text-lg font-bold text-[var(--fg)]">PI-Chat</h1>
             <p className="text-xs text-[var(--muted)]">
-              HTTP POST gửi tin nhắn • SSE nhận tin nhắn
+              Chat realtime bằng SSE
             </p>
           </div>
         </div>
