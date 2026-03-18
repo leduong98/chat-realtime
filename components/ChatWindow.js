@@ -431,7 +431,7 @@ export default function ChatWindow() {
               />
               <button
                 type="button"
-                className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] transition-all"
+                className="px-5 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] transition-colors"
                 onClick={addPeer}
               >
                 Thêm & mở chat

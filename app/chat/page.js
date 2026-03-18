@@ -9,9 +9,6 @@ export default function ChatPage() {
         <div className="px-5 py-4 border-b border-[var(--border)] bg-[var(--card)] flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-[var(--fg)]">PI-Chat</h1>
-            <p className="text-xs text-[var(--muted)]">
-              Chat realtime bằng SSE
-            </p>
           </div>
         </div>
         <div className="px-5 pb-5 pt-3 h-[80vh] min-h-[560px] bg-[var(--card-2)]">

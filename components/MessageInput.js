@@ -89,7 +89,7 @@ export default function MessageInput({
       />
       <button
         type="button"
-        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-sm hover:bg-[#16a34a] disabled:opacity-50 transition-colors"
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors"
         onClick={onSend}
         disabled={disabled || !value.trim()}
       >

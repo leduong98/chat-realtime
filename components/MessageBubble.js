@@ -5,7 +5,7 @@ export default function MessageBubble({ isOwn, message, timestamp, kind }) {
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
           isOwn
-            ? "bg-[#22c55e] text-white rounded-br-md"
+            ? "bg-[var(--primary)] text-white rounded-br-md"
             : "bg-[var(--card)] text-[var(--fg)] border border-[var(--border)] rounded-bl-md"
         }`}
       >

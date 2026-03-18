@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "PI-Chat",
-  description: "PI-Chat — chat realtime bằng SSE",
+  description: "PI-Chat",
 };
 
 export default function RootLayout({ children }) {

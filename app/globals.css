@@ -22,8 +22,9 @@
   --card-2: #0f172a;
   --border: #1f2937;
   --shadow: 0 0 0;
-  --primary: #22c55e;
-  --primary-hover: #16a34a;
+  /* Đổi primary sang xanh than để đỡ chói */
+  --primary: #1e3a8a;
+  --primary-hover: #1d4ed8;
 }
 
 @theme inline {
@@ -37,4 +38,45 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Scrollbar (best-effort). Firefox uses scrollbar-color; WebKit uses pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+  background-clip: content-box;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  background-clip: content-box;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+  background-clip: content-box;
 }
