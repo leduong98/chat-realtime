@@ -1,15 +1,22 @@
-import { useRef } from "react";
-import EmojiPicker from "./EmojiPicker";
+import { useEffect, useRef } from "react";
 
 export default function MessageInput({
   value,
   onChange,
   onSend,
   onTyping,
-  onSendImage,
   disabled,
 }) {
-  const fileRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = "0px";
+    textareaRef.current.style.height = `${Math.min(
+      textareaRef.current.scrollHeight,
+      120
+    )}px`;
+  }, [value]);
 
   function handleKeyDown(e) {
     if (e.nativeEvent.isComposing) return;
@@ -21,41 +28,14 @@ export default function MessageInput({
     }
   }
 
-  function handleFileChange(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    // Removed file size limit for unlimited image quality
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (onSendImage) onSendImage(reader.result);
-      e.target.value = "";
-    };
-    reader.readAsDataURL(file);
-  }
-
   return (
     <div className="flex items-end gap-2 border-t border-slate-200 pt-3 mt-3 bg-white rounded-2xl px-2 py-2">
-      <button
-        type="button"
-        className="p-2.5 rounded-xl bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-50"
-        onClick={() => fileRef.current?.click()}
-        disabled={disabled}
-        title="Gửi ảnh"
-      >
-        <span className="text-lg">📎</span>
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
       <div className="flex-1 flex items-end bg-slate-100 rounded-2xl px-4 py-2 min-h-[44px]">
         <textarea
+          ref={textareaRef}
           rows={1}
           className="flex-1 bg-transparent resize-none outline-none text-sm text-slate-800 placeholder:text-slate-400"
-          placeholder={disabled ? "Đang kết nối..." : "Nhập tin nhắn..."}
+          placeholder={disabled ? "Chưa kết nối..." : "Nhập tin nhắn..."}
           value={value}
           disabled={disabled}
           onChange={(e) => {
@@ -63,12 +43,6 @@ export default function MessageInput({
             if (onTyping) onTyping();
           }}
           onKeyDown={handleKeyDown}
-        />
-        <EmojiPicker
-          onSelect={(emoji) => {
-            onChange((value || "") + emoji);
-            if (onTyping) onTyping();
-          }}
         />
       </div>
       <button

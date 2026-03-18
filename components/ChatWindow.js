@@ -1,363 +1,193 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
-import { formatTime, formatChatAddress, parseChatAddress } from "../lib/utils";
-import {
-  loadMessages,
-  saveMessage,
-  getOrCreateUserId,
-  getUsername,
-  saveUsername,
-} from "../lib/storage";
-import {
-  connectSignaling,
-  onSignalMessage,
-  sendSignal,
-  stopPolling,
-} from "../lib/signaling";
-import {
-  createPeerConnection,
-  createOffer,
-  handleOffer,
-  handleAnswer,
-  addIceCandidate,
-} from "../lib/webrtc";
-import { v4 as uuidv4 } from "uuid";
+import { getOrCreateUserId, loadMessages, saveMessage } from "../lib/storage";
+import { createSseClient } from "../lib/sseClient";
+import { sendMessage } from "../lib/api";
+
+function formatTime(ts) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 export default function ChatWindow() {
-  // 1. Thêm state mounted để sửa triệt để lỗi Hydration (Error 418)
   const [mounted, setMounted] = useState(false);
-  
-  // 2. Khởi tạo state trống, không gọi localStorage ở đây
   const [userId, setUserId] = useState(null);
-  const [username, setUsername] = useState("");
-  const [peerAddress, setPeerAddress] = useState("");
-  const [status, setStatus] = useState("disconnected");
+
+  const [peerIdInput, setPeerIdInput] = useState("");
+  const [peerId, setPeerId] = useState("");
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
 
-  const pcRef = useRef(null);
-  const channelRef = useRef(null);
-  const peerIdRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
+  const [sseStatus, setSseStatus] = useState("disconnected"); // connecting | connected | disconnected
+  const sseRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
-  const pendingCandidates = useRef([]);
+  const bottomRef = useRef(null);
 
-  // 3. Chỉ load dữ liệu từ LocalStorage sau khi giao diện đã gắn vào trình duyệt
+  const status = useMemo(() => {
+    if (!peerId) return "disconnected";
+    if (sseStatus === "connected") return "connected";
+    if (sseStatus === "connecting") return "connecting";
+    return "disconnected";
+  }, [peerId, sseStatus]);
+
   useEffect(() => {
     const id = getOrCreateUserId();
     setUserId(id);
-
-    let storedName = getUsername();
-    if (!storedName) {
-      storedName = window.prompt("Nhập username của bạn") || "";
-      if (!storedName.trim()) {
-        storedName = `guest-${id.slice(0, 6)}`;
-      }
-      saveUsername(storedName);
-    }
-    setUsername(storedName);
-    setMessages(loadMessages());
-    
-    // Đánh dấu đã load xong
     setMounted(true);
   }, []);
 
-  function showNotification(msg) {
-    if (typeof window === "undefined") return;
-    if (!("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-    if (!document.hidden) return;
-    const body = msg.isImage ? "[Ảnh]" : msg.message;
-    new Notification("Tin nhắn mới", {
-      body,
-    });
-  }
+  // SSE connect & auto-reconnect
+  useEffect(() => {
+    if (!userId) return;
 
-  const setupDataChannel = useCallback((channel) => {
-    console.log("Setting up data channel:", channel.label, channel.readyState);
-    channelRef.current = channel;
-    channel.onopen = () => {
-      console.log("Data channel opened");
-      setStatus("connected");
-    };
-    channel.onclose = () => {
-      console.log("Data channel closed");
-      setStatus("disconnected");
-    };
-    channel.onerror = (error) => {
-      console.error("Data channel error:", error);
-    };
-    channel.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "typing") {
+    if (sseRef.current) {
+      sseRef.current.stop();
+      sseRef.current = null;
+    }
+
+    sseRef.current = createSseClient({
+      userId,
+      onStatus: setSseStatus,
+      onMessage: (msg) => {
+        // msg: { id, fromId, toId, text, timestamp, type }
+        if (!msg || !msg.type) return;
+
+        if (msg.type === "typing") {
           setPeerTyping(true);
-          if (peerTypingTimeoutRef.current) {
-            clearTimeout(peerTypingTimeoutRef.current);
-          }
-          peerTypingTimeoutRef.current = setTimeout(
-            () => setPeerTyping(false),
-            1500
-          );
-        } else if (data.type === "message") {
-          const msg = {
-            id: uuidv4(),
-            chatId: peerIdRef.current,
-            senderId: data.senderId,
-            message: data.message,
-            isImage: data.isImage || false,
-            timestamp: data.timestamp,
-          };
-          setMessages((prev) => [...prev, msg]);
-          saveMessage(msg);
-          showNotification(msg);
-        }
-      } catch {
-        // ignore
-      }
-    };
-  }, []);
-
-  const setupPeer = useCallback(async (isInitiator) => {
-    if (pcRef.current) return;
-    setStatus("connecting");
-
-    const connectionTimeout = setTimeout(() => {
-      if (pcRef.current && pcRef.current.connectionState !== "connected") {
-        console.log("Connection timeout - closing peer connection");
-        pcRef.current.close();
-        pcRef.current = null;
-        setStatus("disconnected");
-        alert("Kết nối thất bại sau 15 giây. Hãy thử lại hoặc kiểm tra network.");
-      }
-    }, 8000); 
-
-    const pc = createPeerConnection({
-      onDataChannel: (channel) => {
-        setupDataChannel(channel);
-      },
-      onIceCandidate: (candidate) => {
-        if (peerIdRef.current) {
-          sendSignal({
-            type: "ice-candidate",
-            targetId: peerIdRef.current,
-            candidate,
-          });
-        }
-      },
-      onConnectionStateChange: (state) => {
-        console.log("WebRTC connection state:", state);
-        if (state === "connected") {
-          clearTimeout(connectionTimeout);
-          setStatus("connected");
-        } else if (state === "disconnected" || state === "failed") {
-          clearTimeout(connectionTimeout);
-          setStatus("disconnected");
-        }
-      },
-    });
-
-    pcRef.current = pc;
-
-    if (isInitiator) {
-      const { offer, channel } = await createOffer(pc);
-      setupDataChannel(channel);
-
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      sendSignal({
-        type: "offer",
-        targetId: peerIdRef.current,
-        offer,
-      });
-      console.log("Sent offer to peer:", peerIdRef.current);
-    }
-  }, [setupDataChannel]);
-
-  async function handleConnect() {
-    if (!peerAddress.trim()) return;
-    const parsed = parseChatAddress(peerAddress);
-    if (!parsed) return;
-    peerIdRef.current = parsed;
-    await setupPeer(true);
-  }
-
-  function handleSendMessageInternal({ text, isImage }) {
-    if (!channelRef.current || channelRef.current.readyState !== "open") {
-      alert("Chưa kết nối WebRTC, hãy kiểm tra lại peer.");
-      return;
-    }
-    const payload = {
-      type: "message",
-      senderId: userId,
-      message: text,
-      isImage: !!isImage,
-      timestamp: Date.now(),
-    };
-    channelRef.current.send(JSON.stringify(payload));
-    const msg = {
-      id: uuidv4(),
-      chatId: peerIdRef.current,
-      senderId: userId,
-      message: text,
-      isImage: !!isImage,
-      timestamp: payload.timestamp,
-    };
-    setMessages((prev) => [...prev, msg]);
-    saveMessage(msg);
-  }
-
-  function handleSendText() {
-    const text = typeof input === "string" ? input : "";
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    handleSendMessageInternal({ text: trimmed, isImage: false });
-    setInput("");
-  }
-
-  function handleSendImage(dataUrl) {
-    handleSendMessageInternal({ text: dataUrl, isImage: true });
-  }
-
-  function handleTyping() {
-    setTyping(true);
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    typingTimeoutRef.current = setTimeout(() => setTyping(false), 1500);
-
-    if (channelRef.current && channelRef.current.readyState === "open") {
-      channelRef.current.send(JSON.stringify({ type: "typing" }));
-    }
-
-    if (peerIdRef.current) {
-      sendSignal({
-        type: "typing",
-        targetId: peerIdRef.current,
-      });
-    }
-  }
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (userId) {
-      connectSignaling(userId, { username });
-      const unsubscribe = onSignalMessage(async (msg) => {
-        console.log("Received signal message:", msg);
-
-        if (!pcRef.current) {
-          await setupPeer(false);
-        }
-
-        if (!pcRef.current) {
-          console.error("Failed to setup peer connection");
+          if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
+          peerTypingTimeoutRef.current = setTimeout(() => setPeerTyping(false), 1200);
           return;
         }
 
-        if (msg.type === "offer") {
-          peerIdRef.current = msg.fromId;
-          setStatus("connecting");
-          const answer = await handleOffer(pcRef.current, msg.offer);
-          
-          // Sau khi set offer xong, lôi ICE candidates trong phòng chờ ra (nếu có)
-          while (pendingCandidates.current.length > 0) {
-            await addIceCandidate(pcRef.current, pendingCandidates.current.shift());
-          }
+        if (msg.type !== "message") return;
 
-          await new Promise(resolve => setTimeout(resolve, 500));
-          sendSignal({ type: "answer", targetId: msg.fromId, answer });
-          console.log("Sent answer to peer:", msg.fromId);
+        const chatId = msg.fromId;
+        const item = {
+          id: msg.id || uuidv4(),
+          chatId,
+          senderId: msg.fromId,
+          message: msg.text,
+          timestamp: msg.timestamp,
+        };
 
-        } else if (msg.type === "answer") {
-          // Chỉ set answer khi đang chờ (have-local-offer). Tránh set 2 lần -> wrong state: stable
-          if (pcRef.current.signalingState !== "have-local-offer") {
-            return;
-          }
-          console.log("Received answer from peer");
-          await handleAnswer(pcRef.current, msg.answer);
+        setMessages((prev) => [...prev, item]);
+        saveMessage(chatId, item);
 
-          while (pendingCandidates.current.length > 0) {
-            const candidate = pendingCandidates.current.shift();
-            await addIceCandidate(pcRef.current, candidate);
-          }
-
-        } else if (msg.type === "ice-candidate" && msg.candidate) {
-          console.log("Received ICE candidate from peer");
-          
-          // KIỂM TRA: Nếu đã có Remote Description (đã nhận Offer/Answer) thì add luôn
-          if (pcRef.current && pcRef.current.remoteDescription) {
-            await addIceCandidate(pcRef.current, msg.candidate);
-          } else {
-            // NẾU CHƯA: Tạm thời nhét vào phòng chờ
-            console.log("Remote description chưa có, tạm cất ICE vào phòng chờ");
-            pendingCandidates.current.push(msg.candidate);
-          }
-        } else if (msg.type === "typing") {
-          setPeerTyping(true);
-          if (peerTypingTimeoutRef.current) {
-            clearTimeout(peerTypingTimeoutRef.current);
-          }
-          peerTypingTimeoutRef.current = setTimeout(
-            () => setPeerTyping(false),
-            1500
-          );
-        } else if (msg.type === "peer-unavailable") {
-          setStatus("disconnected");
-          alert("Peer không online hoặc chưa mở trang chat.");
+        // Bonus: sound notification (best-effort)
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "sine";
+          o.frequency.value = 660;
+          g.gain.value = 0.03;
+          o.connect(g);
+          g.connect(ctx.destination);
+          o.start();
+          setTimeout(() => {
+            o.stop();
+            ctx.close();
+          }, 80);
+        } catch {
+          // ignore
         }
-      });
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, [userId, username, setupPeer]);
+      },
+    });
 
-  useEffect(() => {
     return () => {
-      if (pcRef.current) {
-        pcRef.current.close();
+      if (sseRef.current) {
+        sseRef.current.stop();
+        sseRef.current = null;
       }
-      stopPolling();
     };
-  }, []);
+  }, [userId]);
 
-  // 4. Nếu chưa mount xong ở Client, không render UI để tránh lệch HTML
+  // Load local history when selecting peer
+  useEffect(() => {
+    if (!peerId) return;
+    setMessages(loadMessages(peerId));
+  }, [peerId]);
+
+  // Auto scroll
+  useEffect(() => {
+    if (!bottomRef.current) return;
+    bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length]);
+
+  function handleConnectPeer() {
+    const v = (peerIdInput || "").trim();
+    if (!v) return;
+    setPeerId(v);
+  }
+
+  function handleTyping() {
+    if (!userId || !peerId) return;
+    // Fake typing indicator: only shows if peer is online with open SSE
+    sendMessage({
+      fromId: userId,
+      toId: peerId,
+      text: "",
+      timestamp: Date.now(),
+      type: "typing",
+    }).catch(() => {});
+  }
+
+  async function handleSend() {
+    const text = (input || "").trim();
+    if (!text) return;
+    if (!userId || !peerId) return;
+
+    const local = {
+      id: uuidv4(),
+      chatId: peerId,
+      senderId: userId,
+      message: text,
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, local]);
+    saveMessage(peerId, local);
+    setInput("");
+
+    // Ephemeral send: no delivery guarantee if peer offline (no open SSE)
+    sendMessage({
+      fromId: userId,
+      toId: peerId,
+      text,
+      timestamp: local.timestamp,
+      type: "message",
+    }).catch(() => {});
+  }
+
   if (!mounted) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-sm text-slate-500 animate-pulse">Đang khởi tạo kết nối an toàn...</div>
+        <div className="text-sm text-slate-500 animate-pulse">Đang khởi tạo...</div>
       </div>
     );
   }
-
-  const address = formatChatAddress(userId);
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <header className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 text-lg">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 text-lg">
             👤
           </div>
-          <div>
-            <div className="text-xs text-slate-500">Bạn đang đăng nhập</div>
-            <div className="font-semibold text-slate-800">
-              {username} <span className="text-xs font-normal text-slate-400">({userId?.slice(0, 8)}...)</span>
-            </div>
+          <div className="min-w-0">
+            <div className="text-xs text-slate-500">User ID</div>
+            <div className="font-semibold text-slate-800 truncate">{userId}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -370,23 +200,17 @@ export default function ChatWindow() {
                 : "bg-slate-100 text-slate-600"
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${
-              status === "connected" ? "bg-green-500" : status === "connecting" ? "bg-amber-500 animate-pulse" : "bg-slate-400"
-            }`} />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                status === "connected"
+                  ? "bg-green-500"
+                  : status === "connecting"
+                  ? "bg-amber-500 animate-pulse"
+                  : "bg-slate-400"
+              }`}
+            />
             {status}
           </span>
-          <button
-            type="button"
-            className="px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-medium hover:bg-slate-200 transition-colors"
-            onClick={() => {
-              navigator.clipboard
-                .writeText(address)
-                .then(() => alert("Đã copy địa chỉ!"))
-                .catch(() => alert("Không copy được, hãy copy thủ công."));
-            }}
-          >
-            📋 Copy địa chỉ
-          </button>
         </div>
       </header>
 
@@ -395,27 +219,34 @@ export default function ChatWindow() {
         <input
           type="text"
           className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-          placeholder="Dán địa chỉ peer, ví dụ: chat://abc-123..."
-          value={peerAddress}
-          onChange={(e) => setPeerAddress(e.target.value)}
+          placeholder="Nhập peerId (userId của người kia)"
+          value={peerIdInput}
+          onChange={(e) => setPeerIdInput(e.target.value)}
         />
         <button
           type="button"
           className="px-5 py-2.5 rounded-2xl bg-[#22c55e] text-white text-sm font-semibold shadow-md shadow-green-200/50 hover:bg-[#16a34a] transition-all"
-          onClick={handleConnect}
+          onClick={handleConnectPeer}
         >
-          Kết nối
+          Connect
         </button>
       </div>
 
+      {/* Warning */}
+      <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="font-semibold mb-1">Cảnh báo</div>
+        <div>
+          This chat is ephemeral. Messages may be lost if the other user is offline.
+        </div>
+      </div>
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-white/50 rounded-2xl p-3 min-h-0" id="chat-scroll">
+      <div className="flex-1 overflow-y-auto space-y-1 pr-1 bg-white/50 rounded-2xl p-3 min-h-0">
         {messages.map((m) => (
           <MessageBubble
             key={m.id}
             isOwn={m.senderId === userId}
             message={m.message}
-            isImage={m.isImage}
             timestamp={formatTime(m.timestamp)}
           />
         ))}
@@ -425,17 +256,18 @@ export default function ChatWindow() {
             Đang nhập...
           </div>
         )}
+        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       <MessageInput
         value={input}
         onChange={setInput}
-        onSend={handleSendText}
+        onSend={handleSend}
         onTyping={handleTyping}
-        onSendImage={handleSendImage}
-        disabled={status !== "connected" && status !== "connecting"}
+        disabled={status !== "connected"}
       />
     </div>
   );
 }
+

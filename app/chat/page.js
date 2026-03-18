@@ -8,9 +8,9 @@ export default function ChatPage() {
       <div className="w-full max-w-3xl rounded-3xl bg-white shadow-xl shadow-slate-200/60 border border-slate-200/80 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 bg-white flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-slate-800">P2P Chat</h1>
+            <h1 className="text-lg font-bold text-slate-800">SSE 1-1 Chat</h1>
             <p className="text-xs text-slate-500">
-              Kết nối trực tiếp, bảo mật
+              HTTP POST gửi tin nhắn • SSE nhận tin nhắn
             </p>
           </div>
         </div>
