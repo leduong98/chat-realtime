@@ -229,10 +229,21 @@ export default function ChatWindow() {
     saveActivePeer(activePeerId);
   }, [activePeerId]);
 
-  // Auto scroll
-  useEffect(() => {
+  function scrollToBottom(behavior) {
     if (!bottomRef.current) return;
-    bottomRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    bottomRef.current.scrollIntoView({ behavior: behavior || "auto", block: "end" });
+  }
+
+  // Khi đổi session: nhảy thẳng xuống cuối (không smooth)
+  useEffect(() => {
+    if (!activePeerId) return;
+    // đợi DOM render xong messages mới rồi scroll
+    requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom("auto")));
+  }, [activePeerId]);
+
+  // Khi có tin nhắn mới: scroll mượt xuống cuối
+  useEffect(() => {
+    scrollToBottom("smooth");
   }, [messages.length]);
 
   function handleConnectPeer() {
