@@ -1,6 +1,6 @@
 /**
  * POST /api/send
- * body: { fromId, toId, message, timestamp, type, kind, data }
+ * body: { fromId, toId, message, timestamp, type, kind }
  *
  * - No DB, no persistence.
  * - Broadcast only if receiver currently has an open SSE stream.
@@ -15,32 +15,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { fromId, toId, message, timestamp, type, kind, data } = req.body || {};
-  if (!fromId || !toId || !timestamp) {
+  const { fromId, toId, message, timestamp, type, kind } = req.body || {};
+  if (!fromId || !toId || typeof message !== "string" || !timestamp) {
     return res.status(400).json({ error: "Invalid payload" });
-  }
-
-  const t = type || "message";
-  if (t === "message") {
-    if (typeof message !== "string") return res.status(400).json({ error: "Invalid payload" });
-  } else if (t === "typing") {
-    // allow empty message
-  } else if (t === "reaction") {
-    if (!data || typeof data !== "object") return res.status(400).json({ error: "Invalid payload" });
-    if (!data.targetMessageId || typeof data.emoji !== "string") {
-      return res.status(400).json({ error: "Invalid payload" });
-    }
   }
 
   const payload = {
     id: crypto.randomUUID(),
     fromId,
     toId,
-    text: typeof message === "string" ? message : "",
+    text: message,
     timestamp,
-    type: t,
+    type: type || "message",
     kind: kind || "text",
-    data: data || null,
   };
 
   const targets = activeStreams.get(toId);
