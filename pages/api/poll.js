@@ -4,6 +4,12 @@ import { getDb } from "../../lib/db";
 
 const TTL_SECONDS = 60 * 60 * 24; // 1 day
 const MAX_BATCH = 50;
+const LONGPOLL_TIMEOUT_MS = 25000;
+const CHECK_INTERVAL_MS = 500;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
@@ -22,11 +28,20 @@ export default async function handler(req, res) {
     await q.createIndex({ createdAt: 1 }, { expireAfterSeconds: TTL_SECONDS });
     await q.createIndex({ toId: 1, createdAt: 1 });
 
-    const docs = await q
-      .find({ toId: userId })
-      .sort({ createdAt: 1 })
-      .limit(MAX_BATCH)
-      .toArray();
+    const started = Date.now();
+    let docs = [];
+
+    while (Date.now() - started < LONGPOLL_TIMEOUT_MS) {
+      docs = await q
+        .find({ toId: userId })
+        .sort({ createdAt: 1 })
+        .limit(MAX_BATCH)
+        .toArray();
+      if (docs.length) break;
+      // wait before checking again
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(CHECK_INTERVAL_MS);
+    }
 
     if (docs.length) {
       const ids = docs.map((d) => d._id).filter(Boolean);
