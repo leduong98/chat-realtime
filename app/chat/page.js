@@ -7,10 +7,12 @@ import RequireAuth from "../../components/RequireAuth";
 export default function ChatPage() {
   return (
     <RequireAuth>
-      <main className="min-h-screen flex items-center justify-center px-3 py-6 bg-[var(--bg)]">
-        <div className="w-[80vw] max-w-6xl rounded-3xl bg-[var(--card)] shadow-xl border border-[var(--border)] overflow-hidden">
-          <AppHeader />
-          <div className="px-5 pb-5 pt-3 h-[80vh] min-h-[560px] bg-[var(--card-2)]">
+      <main className="min-h-screen flex flex-col md:min-h-screen md:items-center md:justify-center md:px-3 md:py-6 px-0 py-0 bg-[var(--bg)]">
+        <div className="flex-1 flex flex-col min-h-0 w-full md:w-[80vw] md:max-w-6xl md:rounded-3xl md:bg-[var(--card)] md:shadow-xl md:border md:border-[var(--border)] overflow-hidden">
+          <header className="hidden md:block">
+            <AppHeader />
+          </header>
+          <div className="flex-1 min-h-0 flex flex-col px-2 pb-2 pt-2 md:px-5 md:pb-5 md:pt-3 md:h-[80vh] md:min-h-[560px] bg-[var(--card-2)]">
             <ChatWindow />
           </div>
         </div>

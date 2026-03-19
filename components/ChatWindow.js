@@ -22,10 +22,16 @@ import { sendMessage } from "../lib/api";
 import {
   Check,
   ClipboardCopy,
+  LogOut,
+  Menu,
+  Moon,
   Plus,
+  Sun,
   User,
   X,
 } from "lucide-react";
+import { applyTheme, getInitialTheme, saveTheme } from "../lib/theme";
+import { signOut } from "next-auth/react";
 
 function formatTime(ts) {
   try {
@@ -57,6 +63,8 @@ export default function ChatWindow() {
   const [unreadPeerIds, setUnreadPeerIds] = useState({}); // { [peerId]: true }
   const [peerLastActivity, setPeerLastActivity] = useState({}); // { [peerId]: timestamp }
   const [confirmRemovePeerId, setConfirmRemovePeerId] = useState(null); // pid khi đang hỏi xác nhận xóa
+  const [sidebarOpen, setSidebarOpen] = useState(false); // drawer trên mobile
+  const [theme, setTheme] = useState("light");
 
   const [sseStatus, setSseStatus] = useState("disconnected"); // reusing status labels for UI
   const pollRef = useRef(null);
@@ -69,6 +77,19 @@ export default function ChatWindow() {
   useEffect(() => {
     activePeerIdRef.current = activePeerId;
   }, [activePeerId]);
+
+  useEffect(() => {
+    const t = getInitialTheme();
+    setTheme(t);
+    applyTheme(t);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    applyTheme(next);
+    saveTheme(next);
+  }
 
   const status = useMemo(() => {
     if (!activePeerId) return "disconnected";
@@ -581,18 +602,40 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex h-full gap-4">
-      {/* Sidebar (left) */}
-      <aside className="flex-3 min-w-[280px] max-w-[380px] flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
-        {/* Top row: user + actions */}
+    <div className="flex h-full gap-4 relative">
+      {/* Drawer overlay (mobile) */}
+      {sidebarOpen ? (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          aria-hidden
+          onClick={() => setSidebarOpen(false)}
+        />
+      ) : null}
+
+      {/* Sidebar (left) - desktop: luôn hiện; mobile: trong drawer */}
+      <aside
+        className={`flex-3 min-w-[280px] max-w-[380px] flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4
+          hidden md:flex md:relative
+          ${sidebarOpen ? "!flex max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[85vw] max-md:max-w-[320px] max-md:rounded-r-3xl max-md:rounded-l-none max-md:shadow-xl" : ""}`}
+      >
+        {/* Top row: user + actions (profile) */}
         <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 shrink-0 rounded-xl bg-[var(--card-2)] border border-[var(--border)] flex items-center justify-center text-[var(--muted)]">
               <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-xs text-[var(--muted)]">User ID</div>
-              <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
+              {session?.user?.name ? (
+                <>
+                  <div className="font-semibold text-[var(--fg)] truncate">{String(session.user.name)}</div>
+                  <div className="text-xs text-[var(--muted)] truncate">{userId}</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs text-[var(--muted)]">User ID</div>
+                  <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
+                </>
+              )}
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
@@ -614,7 +657,7 @@ export default function ChatWindow() {
           </div>
         </div>
 
-        {/* Status */}
+        {/* Status (Trạng thái) */}
         <div className="mt-3 flex items-center justify-between">
           <div className="text-xs text-[var(--muted)]">Trạng thái</div>
           <span
@@ -718,7 +761,10 @@ export default function ChatWindow() {
                         ? ""
                         : "bg-[var(--card)] text-[var(--fg)] hover:bg-[var(--card-2)]"
                     }`}
-                    onClick={() => setActivePeerId(p.peerId)}
+                    onClick={() => {
+                      setActivePeerId(p.peerId);
+                      setSidebarOpen(false);
+                    }}
                     title={p.peerId}
                   >
                     <div className="min-w-0 flex items-center gap-2">
@@ -794,7 +840,60 @@ export default function ChatWindow() {
       </aside>
 
       {/* Chat area (right) */}
-      <section className="flex-7 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <section className="flex-1 md:flex-7 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 md:p-4">
+        {/* Mobile header: menu, PI-Chat, theme, status, đăng xuất */}
+        <div className="flex md:hidden items-center justify-between gap-2 pb-3 mb-2 border-b border-[var(--border)]">
+          <button
+            type="button"
+            className="p-2 rounded-xl border border-[var(--border)] bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] cursor-pointer"
+            onClick={() => setSidebarOpen(true)}
+            title="Menu"
+            aria-label="Mở menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <h1 className="text-base font-bold text-[var(--fg)] truncate">PI-Chat</h1>
+          <button
+            type="button"
+            className="p-2 rounded-xl border border-[var(--border)] bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] cursor-pointer shrink-0"
+            onClick={toggleTheme}
+            title="Đổi giao diện sáng/tối"
+            aria-label="Đổi theme"
+          >
+            {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          </button>
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium shrink-0 ${
+              status === "connected"
+                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                : status === "connecting"
+                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+            }`}
+            title={status}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                status === "connected"
+                  ? "bg-green-500"
+                  : status === "connecting"
+                  ? "bg-amber-500 animate-pulse"
+                  : "bg-slate-400"
+              }`}
+            />
+            <span className="truncate max-w-[72px]">{userId || "—"}</span>
+          </span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-[var(--border)] bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] cursor-pointer text-xs font-semibold shrink-0"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            <span className="max-sm:hidden">Đăng xuất</span>
+          </button>
+        </div>
+
         {toast ? (
           <div className="mb-3 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             {toast}
