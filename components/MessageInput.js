@@ -2,6 +2,24 @@ import { useEffect, useRef } from "react";
 import EmojiPicker from "./EmojiPicker";
 import { Image as ImageIcon, SendHorizonal } from "lucide-react";
 
+// Giới hạn kích thước ảnh (có thể tăng để chất lượng cao hơn; cân nhắc dung lượng MongoDB/network)
+const MAX_IMAGE_BYTES = 6 * 1024 * 1024; // 6MB
+
+function processImageFile(file, onSuccess, onError) {
+  if (!file || !file.type.startsWith("image/")) return;
+  if (file.size > MAX_IMAGE_BYTES) {
+    onError?.(`Ảnh quá lớn. Tối đa ${Math.round(MAX_IMAGE_BYTES / 1024)}KB.`);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    if (dataUrl) onSuccess?.(String(dataUrl));
+  };
+  reader.onerror = () => onError?.("Không đọc được ảnh.");
+  reader.readAsDataURL(file);
+}
+
 export default function MessageInput({
   value,
   onChange,
@@ -32,8 +50,26 @@ export default function MessageInput({
     }
   }
 
+  function handlePaste(e) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          processImageFile(file, onSendImage, (msg) => alert(msg));
+        }
+        return;
+      }
+    }
+  }
+
   return (
-    <div className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2 min-w-0 overflow-hidden shrink-0">
+    <div
+      className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2 min-w-0 overflow-hidden shrink-0"
+      onPaste={handlePaste}
+    >
       <button
         type="button"
         className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)] cursor-pointer"
@@ -51,18 +87,17 @@ export default function MessageInput({
         onChange={(e) => {
           const file = e.target.files && e.target.files[0];
           if (!file) return;
-          const maxSize = 300 * 1024; // ~300KB để tránh payload quá lớn
-          if (file.size > maxSize) {
-            alert("Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn ~300KB.");
-            e.target.value = "";
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (onSendImage) onSendImage(String(reader.result || ""));
-            e.target.value = "";
-          };
-          reader.readAsDataURL(file);
+          processImageFile(
+            file,
+            (dataUrl) => {
+              if (onSendImage) onSendImage(dataUrl);
+              e.target.value = "";
+            },
+            (msg) => {
+              alert(msg);
+              e.target.value = "";
+            }
+          );
         }}
       />
       <div className="flex-1 min-w-0 flex items-center bg-[var(--card-2)] rounded-2xl px-4 min-h-11 border border-[var(--border)]">

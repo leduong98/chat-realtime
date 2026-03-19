@@ -8,7 +8,8 @@ import { getDb } from "../../lib/db";
  *
  * Serverless-safe:
  * - Persist to Mongo queue with TTL (see /api/poll).
- * - Receiver polls & deletes queue items after receiving.
+ * - Text/typing/invite/ack: receiver poll xong sẽ xóa ngay.
+ * - Image: giữ trong queue đến khi receiver gửi ack (delivered/seen), rồi mới xóa.
  */
 
 export default async function handler(req, res) {
@@ -63,10 +64,28 @@ export default async function handler(req, res) {
   try {
     const db = await getDb();
     const q = db.collection("message_queue");
+    const isImageMessage =
+      t === "message" &&
+      (payload.kind === "image" || String(payload.text || "").startsWith("data:image/"));
+    const ackExpireAt = isImageMessage ? new Date(Date.now() + 30 * 60 * 1000) : null;
+
+    // Receiver ack -> xóa ảnh gốc khỏi queue (nếu có), rồi vẫn gửi ack về cho sender.
+    if (t === "ack") {
+      await q.deleteMany({
+        toId: fromId,
+        "payload.id": String(data.targetMessageId),
+        "payload.type": "message",
+        $or: [{ "payload.kind": "image" }, { "payload.text": { $regex: "^data:image/" } }],
+      });
+    }
+
     await q.insertOne({
       toId: String(toId).trim(),
       fromId,
       payload,
+      requiresAck: isImageMessage,
+      deliveredAt: null,
+      ackExpireAt,
       createdAt: new Date(),
     });
   } catch (e) {

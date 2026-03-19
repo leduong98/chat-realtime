@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     const db = await getDb();
     const q = db.collection("message_queue");
     await q.createIndex({ createdAt: 1 }, { expireAfterSeconds: TTL_SECONDS });
+    await q.createIndex({ ackExpireAt: 1 }, { expireAfterSeconds: 0 });
     await q.createIndex({ toId: 1, createdAt: 1 });
 
     const started = Date.now();
@@ -33,7 +34,10 @@ export default async function handler(req, res) {
 
     while (Date.now() - started < LONGPOLL_TIMEOUT_MS) {
       docs = await q
-        .find({ toId: userId })
+        .find({
+          toId: userId,
+          $or: [{ requiresAck: { $ne: true } }, { requiresAck: true, deliveredAt: null }],
+        })
         .sort({ createdAt: 1 })
         .limit(MAX_BATCH)
         .toArray();
@@ -44,8 +48,21 @@ export default async function handler(req, res) {
     }
 
     if (docs.length) {
-      const ids = docs.map((d) => d._id).filter(Boolean);
-      await q.deleteMany({ _id: { $in: ids } });
+      const deleteIds = docs.filter((d) => d.requiresAck !== true).map((d) => d._id).filter(Boolean);
+      const markDeliveredIds = docs
+        .filter((d) => d.requiresAck === true && d.deliveredAt == null)
+        .map((d) => d._id)
+        .filter(Boolean);
+
+      if (deleteIds.length) {
+        await q.deleteMany({ _id: { $in: deleteIds } });
+      }
+      if (markDeliveredIds.length) {
+        await q.updateMany(
+          { _id: { $in: markDeliveredIds } },
+          { $set: { deliveredAt: new Date() } }
+        );
+      }
     }
 
     const items = docs.map((d) => d?.payload).filter(Boolean);
