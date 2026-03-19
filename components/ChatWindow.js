@@ -8,6 +8,7 @@ import MessageInput from "./MessageInput";
 import {
   getOrCreateUserId,
   loadMessages,
+  getLastMessage,
   saveMessage,
   saveMessages,
   loadPeers,
@@ -49,6 +50,11 @@ export default function ChatWindow() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
+
+  // Sidebar: preview tin cuối, unread, trạng thái online (heuristic: hoạt động trong 3 phút)
+  const [lastMessageByPeerId, setLastMessageByPeerId] = useState({});
+  const [unreadPeerIds, setUnreadPeerIds] = useState({}); // { [peerId]: true }
+  const [peerLastActivity, setPeerLastActivity] = useState({}); // { [peerId]: timestamp }
 
   const [sseStatus, setSseStatus] = useState("disconnected"); // reusing status labels for UI
   const pollRef = useRef(null);
@@ -168,6 +174,7 @@ export default function ChatWindow() {
         if (!msg || !msg.type) return;
 
         if (msg.type === "typing") {
+          setPeerLastActivity((prev) => ({ ...prev, [msg.fromId]: Date.now() }));
           if (activePeerIdRef.current !== msg.fromId) return;
           setPeerTyping(true);
           if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
@@ -247,6 +254,15 @@ export default function ChatWindow() {
 
         // Luôn lưu vào IndexedDB theo đúng cuộc hội thoại
         saveMessage(chatId, item).catch(() => {});
+        // Sidebar: cập nhật hoạt động + preview + unread nếu không đang mở chat này
+        setPeerLastActivity((prev) => ({ ...prev, [chatId]: Date.now() }));
+        setLastMessageByPeerId((prev) => ({
+          ...prev,
+          [chatId]: { message: msg.text, timestamp: msg.timestamp, senderId: msg.fromId },
+        }));
+        if (activePeerIdRef.current !== chatId) {
+          setUnreadPeerIds((prev) => ({ ...prev, [chatId]: true }));
+        }
         // Chỉ append vào UI khi đang mở đúng chat với peer gửi tin (tránh lỗi chat nhiều người)
         if (activePeerIdRef.current === chatId) {
           setMessages((prev) => [...prev, item]);
@@ -330,6 +346,11 @@ export default function ChatWindow() {
   // Load local history when selecting peer
   useEffect(() => {
     if (!activePeerId) return;
+    setUnreadPeerIds((prev) => {
+      const next = { ...prev };
+      delete next[activePeerId];
+      return next;
+    });
     let alive = true;
     (async () => {
       const list = await loadMessages(activePeerId);
@@ -341,6 +362,22 @@ export default function ChatWindow() {
       alive = false;
     };
   }, [activePeerId]);
+
+  // Load preview tin cuối cho từng peer (sidebar)
+  useEffect(() => {
+    if (!peers.length) return;
+    let alive = true;
+    (async () => {
+      const next = {};
+      for (const p of peers) {
+        if (!alive) return;
+        const last = await getLastMessage(p.peerId);
+        if (last) next[p.peerId] = { message: last.message, timestamp: last.timestamp, senderId: last.senderId };
+      }
+      if (alive) setLastMessageByPeerId((prev) => ({ ...prev, ...next }));
+    })();
+    return () => { alive = false; };
+  }, [peers]);
 
   // Nếu đang có thông báo trên title và user mở đúng session đó -> reset title
   useEffect(() => {
@@ -405,6 +442,10 @@ export default function ChatWindow() {
 
     setMessages((prev) => [...prev, local]);
     saveMessage(activePeerId, local).catch(() => {});
+    setLastMessageByPeerId((prev) => ({
+      ...prev,
+      [activePeerId]: { message: text, timestamp: local.timestamp, senderId: userId },
+    }));
     setInput("");
 
     // Ephemeral send: no delivery guarantee if peer offline (no open SSE)
@@ -611,7 +652,7 @@ export default function ChatWindow() {
               <input
                 type="text"
                 className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="peerId (userId người kia)"
+                placeholder="username"
                 value={newPeerId}
                 onChange={(e) => setNewPeerId(e.target.value)}
               />
@@ -630,26 +671,47 @@ export default function ChatWindow() {
         <div className="mt-3 flex-1 overflow-y-auto pr-1">
           {peers.length ? (
             <div className="space-y-2">
-              {peers.map((p) => (
+              {peers.map((p) => {
+                const last = lastMessageByPeerId[p.peerId];
+                const preview = last?.message != null
+                  ? (String(last.message).startsWith("data:image/") ? "🖼 Ảnh" : String(last.message).slice(0, 36) + (String(last.message).length > 36 ? "…" : ""))
+                  : "Chưa có tin nhắn";
+                const isOnline = peerLastActivity[p.peerId] && Date.now() - peerLastActivity[p.peerId] < 3 * 60 * 1000;
+                const hasUnread = unreadPeerIds[p.peerId];
+                return (
                 <div key={p.peerId} className="relative">
                   <button
                     type="button"
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border cursor-pointer text-left ${
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border-2 cursor-pointer text-left transition-colors ${
+                      hasUnread
+                        ? "border-orange-500"
+                        : p.peerId === activePeerId
+                        ? "border-[var(--primary)]"
+                        : "border-[var(--border)]"
+                    } ${
                       p.peerId === activePeerId
-                        ? "bg-[var(--primary)] border-[var(--primary)] text-white"
-                        : "bg-[var(--card)] border-[var(--border)] text-[var(--fg)]"
+                        ? "bg-[var(--primary)] text-white"
+                        : "bg-[var(--card)] text-[var(--fg)] hover:bg-[var(--card-2)]"
                     }`}
                     onClick={() => setActivePeerId(p.peerId)}
                     title={p.peerId}
                   >
-                    <div className="min-w-0">
-                      <div className="font-semibold leading-5 truncate">{p.alias}</div>
-                      <div
-                        className={`text-[11px] leading-4 ${
-                          p.peerId === activePeerId ? "text-white/70" : "text-[var(--muted)]"
-                        }`}
-                      >
-                        {p.peerId.slice(0, 8)}…
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span
+                        className="shrink-0 w-2.5 h-2.5 rounded-full"
+                        title={isOnline ? "Đang hoạt động" : "Offline"}
+                        aria-hidden
+                        style={{ backgroundColor: isOnline ? "#22c55e" : "#ef4444" }}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-semibold leading-5 truncate">{p.alias}</div>
+                        <div
+                          className={`text-[11px] leading-4 truncate ${
+                            p.peerId === activePeerId ? "text-white/70" : "text-[var(--muted)]"
+                          }`}
+                        >
+                          {preview}
+                        </div>
                       </div>
                     </div>
                     <span className="sr-only">Mở chat</span>
@@ -671,7 +733,8 @@ export default function ChatWindow() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-              ))}
+              );
+              })}
             </div>
           ) : (
             <div className="text-sm text-[var(--muted)]">
