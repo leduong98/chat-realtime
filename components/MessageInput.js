@@ -67,7 +67,7 @@ export default function MessageInput({
 
   return (
     <div
-      className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2 min-w-0 overflow-hidden shrink-0"
+      className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2 min-w-0 overflow-x-hidden overflow-y-visible shrink-0"
       onPaste={handlePaste}
     >
       <button
