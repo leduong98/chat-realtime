@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, LogOut } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 import { applyTheme, getInitialTheme, saveTheme } from "../lib/theme";
 
 export default function AppHeader() {
+  const { status } = useSession();
   const [theme, setTheme] = useState("light");
 
   useEffect(() => {
@@ -33,6 +35,18 @@ export default function AppHeader() {
           {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </button>
       </div>
+
+      {status === "authenticated" ? (
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--border)] bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors cursor-pointer text-sm font-semibold"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          title="Đăng xuất"
+        >
+          <LogOut className="h-4 w-4" />
+          Đăng xuất
+        </button>
+      ) : null}
     </div>
   );
 }
