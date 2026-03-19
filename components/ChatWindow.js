@@ -614,7 +614,7 @@ export default function ChatWindow() {
 
       {/* Sidebar (left) - desktop: luôn hiện; mobile: trong drawer */}
       <aside
-        className={`flex-3 min-w-[280px] max-w-[380px] flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4
+        className={`flex-3 min-w-[280px] max-w-[380px] min-h-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4
           hidden md:flex md:relative
           ${sidebarOpen ? "!flex max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[85vw] max-md:max-w-[320px] max-md:rounded-r-3xl max-md:rounded-l-none max-md:shadow-xl" : ""}`}
       >
@@ -734,7 +734,7 @@ export default function ChatWindow() {
         ) : null}
 
         {/* Peer list */}
-        <div className="mt-3 flex-1 overflow-y-auto pr-1">
+        <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
           {peers.length ? (
             <div className="space-y-2">
               {peers.map((p) => {
