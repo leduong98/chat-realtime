@@ -52,10 +52,15 @@ export default function ChatWindow() {
 
   const [sseStatus, setSseStatus] = useState("disconnected"); // reusing status labels for UI
   const pollRef = useRef(null);
+  const activePeerIdRef = useRef(activePeerId);
   const peerTypingTimeoutRef = useRef(null);
   const bottomRef = useRef(null);
   const baseTitleRef = useRef(null);
   const titleNoticeRef = useRef(null); // { peerId, label }
+
+  useEffect(() => {
+    activePeerIdRef.current = activePeerId;
+  }, [activePeerId]);
 
   const status = useMemo(() => {
     if (!activePeerId) return "disconnected";
@@ -163,6 +168,7 @@ export default function ChatWindow() {
         if (!msg || !msg.type) return;
 
         if (msg.type === "typing") {
+          if (activePeerIdRef.current !== msg.fromId) return;
           setPeerTyping(true);
           if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
           peerTypingTimeoutRef.current = setTimeout(() => setPeerTyping(false), 1200);
@@ -203,7 +209,8 @@ export default function ChatWindow() {
           const targetId = msg.data?.targetMessageId;
           const st = msg.data?.status;
           if (!chatId || !targetId || (st !== "delivered" && st !== "seen")) return;
-
+          // Chỉ cập nhật UI khi đang mở đúng cuộc hội thoại với peer gửi ack
+          if (activePeerIdRef.current !== chatId) return;
           setMessages((prev) => {
             const next = prev.map((m) => (m && m.id === targetId ? { ...m, status: st } : m));
             saveMessages(chatId, next).catch(() => {});
@@ -238,8 +245,12 @@ export default function ChatWindow() {
           kind: msg.kind || (String(msg.text || "").startsWith("data:image/") ? "image" : "text"),
         };
 
-        setMessages((prev) => [...prev, item]);
+        // Luôn lưu vào IndexedDB theo đúng cuộc hội thoại
         saveMessage(chatId, item).catch(() => {});
+        // Chỉ append vào UI khi đang mở đúng chat với peer gửi tin (tránh lỗi chat nhiều người)
+        if (activePeerIdRef.current === chatId) {
+          setMessages((prev) => [...prev, item]);
+        }
 
         // ACK delivered back to sender (best-effort)
         sendMessage({
