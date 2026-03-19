@@ -13,18 +13,26 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const u = String(credentials?.username || "").trim().toLowerCase();
-        const p = String(credentials?.password || "");
-        if (!u || !p) return null;
+        try {
+          const u = String(credentials?.username || "").trim().toLowerCase();
+          const p = String(credentials?.password || "");
+          if (!u || !p) return null;
 
-        const db = await getDb();
-        const user = await db.collection("users").findOne({ username: u });
-        if (!user) return null;
+          const db = await getDb();
+          const user = await db.collection("users").findOne({ username: u });
+          if (!user) return null;
 
-        const ok = await bcrypt.compare(p, String(user.passwordHash || ""));
-        if (!ok) return null;
+          const ok = await bcrypt.compare(p, String(user.passwordHash || ""));
+          if (!ok) return null;
 
-        return { id: String(user._id), username: u };
+          return { id: String(user._id), username: u };
+        } catch (e) {
+          const msg = String(e?.message || "");
+          const name = String(e?.name || "");
+          const code = String(e?.code || "");
+          console.error("[nextauth][authorize] error", { name, code, msg });
+          return null;
+        }
       },
     }),
   ],

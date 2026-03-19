@@ -25,11 +25,24 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (e) {
     const msg = String(e?.message || "");
-    if (msg.includes("E11000")) return res.status(409).json({ error: "Username already exists" });
-    if (msg.includes("Missing MONGODB_URI")) {
-      return res.status(500).json({ error: "Missing MONGODB_URI (Vercel env chưa set)" });
+    const code = String(e?.code || "");
+    const name = String(e?.name || "");
+
+    // Log to Vercel Functions Logs (do not include secrets)
+    console.error("[api/register] error", { name, code, msg });
+
+    if (msg.includes("E11000") || code === "11000") {
+      return res.status(409).json({ error: "Username already exists", errorCode: "DUPLICATE_USERNAME" });
     }
-    return res.status(500).json({ error: "Register failed" });
+    if (msg.includes("Missing MONGODB_URI")) {
+      return res
+        .status(500)
+        .json({ error: "Missing MONGODB_URI (Vercel env chưa set)", errorCode: "MISSING_MONGODB_URI" });
+    }
+    if (name === "MongoServerError" || name === "MongoNetworkError" || msg.toLowerCase().includes("mongodb")) {
+      return res.status(500).json({ error: "MongoDB error", errorCode: "MONGODB_ERROR" });
+    }
+    return res.status(500).json({ error: "Register failed", errorCode: "UNKNOWN" });
   }
 }
 
