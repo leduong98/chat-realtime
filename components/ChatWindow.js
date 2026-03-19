@@ -7,8 +7,6 @@ import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import {
   getOrCreateUserId,
-  loadSelfName,
-  saveSelfName,
   loadMessages,
   saveMessage,
   saveMessages,
@@ -40,15 +38,12 @@ export default function ChatWindow() {
   const { data: session, status: authStatus } = useSession();
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [selfName, setSelfName] = useState("");
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
 
   const [peers, setPeers] = useState([]); // [{ peerId, alias, createdAt }]
   const [activePeerId, setActivePeerId] = useState("");
   const [newPeerId, setNewPeerId] = useState("");
-  const [newMyName, setNewMyName] = useState("");
-  const [newPeerName, setNewPeerName] = useState("");
   const [showAdd, setShowAdd] = useState(false);
 
   const [messages, setMessages] = useState([]);
@@ -110,8 +105,6 @@ export default function ChatWindow() {
     setPeers(list);
     const active = loadActivePeer();
     if (active) setActivePeerId(active);
-    const n = loadSelfName();
-    if (n) setSelfName(n);
   }, []);
 
   // If logged in: fetch peers from DB (so login anywhere sees old connects)
@@ -181,10 +174,6 @@ export default function ChatWindow() {
           const inviterName = String(msg.data?.inviterName || "").trim();
           const inviteeName = String(msg.data?.inviteeName || "").trim();
           if (!fromId || !inviterName || !inviteeName) return;
-
-          // Set my name as chosen by inviter (first connector)
-          saveSelfName(inviteeName);
-          setSelfName(inviteeName);
 
           // Auto-add / update peer with inviter's chosen name
           setPeers((prev) => {
@@ -449,29 +438,20 @@ export default function ChatWindow() {
 
   function addPeer() {
     const pid = (newPeerId || "").trim();
-    const myName = (newMyName || "").trim();
-    const peerName = (newPeerName || "").trim();
     if (!pid) return;
     if (pid === userId) {
       alert("Không thể connect chính mình.");
       return;
     }
 
-    if (myName) {
-      saveSelfName(myName);
-      setSelfName(myName);
-    }
-
     const exists = peers.some((p) => p.peerId === pid);
     const next = exists
-      ? peers.map((p) => (p.peerId === pid ? { ...p, alias: peerName || p.alias } : p))
-      : [{ peerId: pid, alias: peerName || pid.slice(0, 8), createdAt: Date.now() }, ...peers];
+      ? peers.map((p) => (p.peerId === pid ? { ...p, alias: pid } : p))
+      : [{ peerId: pid, alias: pid, createdAt: Date.now() }, ...peers];
     setPeers(next);
     savePeers(next);
     setActivePeerId(pid);
     setNewPeerId("");
-    setNewMyName("");
-    setNewPeerName("");
     setShowAdd(false);
 
     // One-way connect: send invite so receiver auto-adds me + sets their name
@@ -482,8 +462,8 @@ export default function ChatWindow() {
       timestamp: Date.now(),
       type: "invite",
       data: {
-        inviterName: myName || selfName || "Bạn",
-        inviteeName: peerName || "Bạn",
+        inviterName: String(userId || "").trim(),
+        inviteeName: pid,
       },
     }).catch(() => {});
 
@@ -538,9 +518,6 @@ export default function ChatWindow() {
             <div className="min-w-0">
               <div className="text-xs text-[var(--muted)]">User ID</div>
               <div className="font-semibold text-[var(--fg)] truncate">{userId}</div>
-              {selfName ? (
-                <div className="text-[11px] text-[var(--muted)] truncate">Tên: {selfName}</div>
-              ) : null}
             </div>
           </div>
           <div className="flex flex-col gap-2 items-end">
@@ -613,8 +590,6 @@ export default function ChatWindow() {
                 onClick={() => {
                   setShowAdd(false);
                   setNewPeerId("");
-                  setNewMyName("");
-                  setNewPeerName("");
                 }}
                 title="Đóng"
               >
@@ -628,20 +603,6 @@ export default function ChatWindow() {
                 placeholder="peerId (userId người kia)"
                 value={newPeerId}
                 onChange={(e) => setNewPeerId(e.target.value)}
-              />
-              <input
-                type="text"
-                className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="Tên của bạn (vd: ABC)"
-                value={newMyName}
-                onChange={(e) => setNewMyName(e.target.value)}
-              />
-              <input
-                type="text"
-                className="rounded-2xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-2.5 text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-400"
-                placeholder="Tên của họ (vd: XYZ)"
-                value={newPeerName}
-                onChange={(e) => setNewPeerName(e.target.value)}
               />
               <button
                 type="button"
