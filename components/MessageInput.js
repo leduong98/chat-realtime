@@ -33,10 +33,10 @@ export default function MessageInput({
   }
 
   return (
-    <div className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2">
+    <div className="flex items-center gap-2 border-t border-[var(--border)] pt-3 mt-3 bg-[var(--card)] rounded-2xl px-2 py-2 min-w-0 overflow-hidden shrink-0">
       <button
         type="button"
-        className="h-11 w-11 inline-flex items-center justify-center rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)] cursor-pointer"
+        className="h-11 w-11 shrink-0 inline-flex items-center justify-center rounded-xl bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--card)] transition-colors disabled:opacity-50 border border-[var(--border)] cursor-pointer"
         onClick={() => fileRef.current?.click()}
         disabled={disabled}
         title="Gửi ảnh (base64)"
@@ -65,11 +65,11 @@ export default function MessageInput({
           reader.readAsDataURL(file);
         }}
       />
-      <div className="flex-1 flex items-center bg-[var(--card-2)] rounded-2xl px-4 min-h-11 border border-[var(--border)]">
+      <div className="flex-1 min-w-0 flex items-center bg-[var(--card-2)] rounded-2xl px-4 min-h-11 border border-[var(--border)]">
         <textarea
           ref={textareaRef}
           rows={1}
-          className="flex-1 bg-transparent resize-none outline-none text-sm leading-5 text-[var(--fg)] placeholder:text-[var(--muted)] py-3"
+          className="flex-1 min-w-0 bg-transparent resize-none outline-none text-sm leading-5 text-[var(--fg)] placeholder:text-[var(--muted)] py-3"
           placeholder={disabled ? "Chưa kết nối..." : "Nhập tin nhắn..."}
           value={value}
           disabled={disabled}
@@ -80,16 +80,18 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
         />
       </div>
-      <EmojiPicker
-        disabled={disabled}
-        onPick={(emoji) => {
-          onChange((value || "") + emoji);
-          if (onTyping) onTyping();
-        }}
-      />
+      <span className="shrink-0">
+        <EmojiPicker
+          disabled={disabled}
+          onPick={(emoji) => {
+            onChange((value || "") + emoji);
+            if (onTyping) onTyping();
+          }}
+        />
+      </span>
       <button
         type="button"
-        className="h-11 inline-flex items-center justify-center gap-2 px-4 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors cursor-pointer"
+        className="h-11 shrink-0 inline-flex items-center justify-center gap-2 px-3 sm:px-4 rounded-2xl bg-[var(--primary)] text-white text-sm font-semibold shadow-sm hover:bg-[var(--primary-hover)] disabled:opacity-50 transition-colors cursor-pointer"
         onClick={onSend}
         disabled={disabled || !value.trim()}
       >
