@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useSession } from "next-auth/react";
 import MessageBubble from "./MessageBubble";
 import MessageInput from "./MessageInput";
 import {
@@ -36,6 +37,7 @@ function formatTime(ts) {
 }
 
 export default function ChatWindow() {
+  const { data: session, status: authStatus } = useSession();
   const [mounted, setMounted] = useState(false);
   const [userId, setUserId] = useState(null);
   const [selfName, setSelfName] = useState("");
@@ -68,10 +70,15 @@ export default function ChatWindow() {
   }, [activePeerId, sseStatus]);
 
   useEffect(() => {
-    const id = getOrCreateUserId();
-    setUserId(id);
+    const username = String(session?.user?.username || "").trim();
+    if (username) {
+      setUserId(username);
+    } else {
+      const id = getOrCreateUserId();
+      setUserId(id);
+    }
     setMounted(true);
-  }, []);
+  }, [session?.user?.username]);
 
   // Base tab title + reset on focus/visibility
   useEffect(() => {
@@ -106,6 +113,25 @@ export default function ChatWindow() {
     const n = loadSelfName();
     if (n) setSelfName(n);
   }, []);
+
+  // If logged in: fetch peers from DB (so login anywhere sees old connects)
+  useEffect(() => {
+    const username = String(session?.user?.username || "").trim();
+    if (!username) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/peers");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data?.peers)) {
+          setPeers(data.peers);
+          savePeers(data.peers);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [session?.user?.username]);
 
   // Browser notification permission (best-effort)
   useEffect(() => {
@@ -167,6 +193,13 @@ export default function ChatWindow() {
               ? prev.map((p) => (p.peerId === fromId ? { ...p, alias: inviterName } : p))
               : [{ peerId: fromId, alias: inviterName, createdAt: Date.now() }, ...prev];
             savePeers(next);
+            if (String(session?.user?.username || "").trim()) {
+              fetch("/api/peers", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ peers: next }),
+              }).catch(() => {});
+            }
             return next;
           });
 
@@ -453,12 +486,28 @@ export default function ChatWindow() {
         inviteeName: peerName || "Bạn",
       },
     }).catch(() => {});
+
+    // Persist peers to DB if logged in
+    if (String(session?.user?.username || "").trim()) {
+      fetch("/api/peers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ peers: next }),
+      }).catch(() => {});
+    }
   }
 
   function removePeer(pid) {
     const next = peers.filter((p) => p.peerId !== pid);
     setPeers(next);
     savePeers(next);
+    if (String(session?.user?.username || "").trim()) {
+      fetch("/api/peers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ peers: next }),
+      }).catch(() => {});
+    }
     if (activePeerId === pid) {
       const fallback = next[0]?.peerId || "";
       setActivePeerId(fallback);
