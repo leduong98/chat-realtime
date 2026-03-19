@@ -602,7 +602,7 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="flex h-full gap-4 relative">
+    <div className="flex h-full min-h-0 gap-4 relative">
       {/* Drawer overlay (mobile) */}
       {sidebarOpen ? (
         <div
@@ -840,7 +840,7 @@ export default function ChatWindow() {
       </aside>
 
       {/* Chat area (right) */}
-      <section className="flex-1 md:flex-7 min-w-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 md:p-4">
+      <section className="flex-1 md:flex-7 min-w-0 min-h-0 flex flex-col rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 md:p-4">
         {/* Mobile header: menu, PI-Chat, theme, status, đăng xuất */}
         <div className="flex md:hidden items-center justify-between gap-2 pb-3 mb-2 border-b border-[var(--border)]">
           <button
