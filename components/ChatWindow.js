@@ -15,7 +15,7 @@ import {
   loadActivePeer,
   saveActivePeer,
 } from "../lib/storage";
-import { createSseClient } from "../lib/sseClient";
+import { createPollClient } from "../lib/pollClient";
 import { sendMessage } from "../lib/api";
 import {
   Check,
@@ -50,8 +50,8 @@ export default function ChatWindow() {
   const [input, setInput] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
 
-  const [sseStatus, setSseStatus] = useState("disconnected"); // connecting | connected | disconnected
-  const sseRef = useRef(null);
+  const [sseStatus, setSseStatus] = useState("disconnected"); // reusing status labels for UI
+  const pollRef = useRef(null);
   const peerTypingTimeoutRef = useRef(null);
   const bottomRef = useRef(null);
   const baseTitleRef = useRef(null);
@@ -150,12 +150,12 @@ export default function ChatWindow() {
   useEffect(() => {
     if (!userId) return;
 
-    if (sseRef.current) {
-      sseRef.current.stop();
-      sseRef.current = null;
+    if (pollRef.current) {
+      pollRef.current.stop();
+      pollRef.current = null;
     }
 
-    sseRef.current = createSseClient({
+    pollRef.current = createPollClient({
       userId,
       onStatus: setSseStatus,
       onMessage: (msg) => {
@@ -309,9 +309,9 @@ export default function ChatWindow() {
     });
 
     return () => {
-      if (sseRef.current) {
-        sseRef.current.stop();
-        sseRef.current = null;
+      if (pollRef.current) {
+        pollRef.current.stop();
+        pollRef.current = null;
       }
     };
   }, [userId]);

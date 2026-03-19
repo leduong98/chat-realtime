@@ -1,22 +1,29 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
+import { getDb } from "../../lib/db";
+
 /**
  * POST /api/send
- * body: { fromId, toId, message, timestamp, type, kind, data, clientMessageId }
+ * body: { toId, message, timestamp, type, kind, data, clientMessageId }
  *
- * - No DB, no persistence.
- * - Broadcast only if receiver currently has an open SSE stream.
- * - If not, message is lost (by design).
+ * Serverless-safe:
+ * - Persist to Mongo queue with TTL (see /api/poll).
+ * - Receiver polls & deletes queue items after receiving.
  */
-
-const activeStreams = globalThis.__activeSseStreams || new Map();
-globalThis.__activeSseStreams = activeStreams;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { fromId, toId, message, timestamp, type, kind, data, clientMessageId } = req.body || {};
-  if (!fromId || !toId || !timestamp) {
+  const session = await getServerSession(req, res, authOptions);
+  const username = String(session?.user?.username || "").trim();
+  if (!username) return res.status(401).json({ error: "Unauthorized" });
+
+  const { toId, message, timestamp, type, kind, data, clientMessageId } = req.body || {};
+  const fromId = username;
+
+  if (!toId || !timestamp) {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
@@ -53,16 +60,21 @@ export default async function handler(req, res) {
     data: data || null,
   };
 
-  const targets = activeStreams.get(toId);
-  if (targets && targets.size > 0) {
-    const data = `data: ${JSON.stringify(payload)}\n\n`;
-    for (const streamRes of targets) {
-      try {
-        streamRes.write(data);
-      } catch {
-        // ignore broken stream
-      }
-    }
+  try {
+    const db = await getDb();
+    const q = db.collection("message_queue");
+    await q.insertOne({
+      toId: String(toId).trim(),
+      fromId,
+      payload,
+      createdAt: new Date(),
+    });
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const name = String(e?.name || "");
+    const code = String(e?.code || "");
+    console.error("[api/send] error", { name, code, msg });
+    return res.status(500).json({ error: "Send failed" });
   }
 
   return res.status(200).json({ ok: true });
