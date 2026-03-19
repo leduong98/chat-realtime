@@ -1,14 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const { status } = useSession();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/chat");
+    }
+  }, [status, router]);
 
   async function onSubmit(e) {
     e.preventDefault();
