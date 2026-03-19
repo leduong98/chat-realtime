@@ -57,6 +57,7 @@ export default function ChatWindow() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [peerTyping, setPeerTyping] = useState(false);
+  const [previewImage, setPreviewImage] = useState("");
 
   // Sidebar: preview tin cuối, unread, trạng thái online (heuristic: hoạt động trong 3 phút)
   const [lastMessageByPeerId, setLastMessageByPeerId] = useState({});
@@ -924,6 +925,7 @@ export default function ChatWindow() {
               timestamp={formatTime(m.timestamp)}
               kind={m.kind}
               status={m.status}
+              onImageClick={(src) => setPreviewImage(src)}
             />
           ))}
           {peerTyping && (
@@ -945,6 +947,34 @@ export default function ChatWindow() {
           disabled={status !== "connected"}
         />
       </section>
+
+      {previewImage ? (
+        <div
+          className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setPreviewImage("")}
+          role="presentation"
+        >
+          <div
+            className="relative max-w-[92vw] max-h-[92vh]"
+            onClick={(e) => e.stopPropagation()}
+            role="presentation"
+          >
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 h-9 w-9 rounded-full bg-white/90 text-black border border-black/10 hover:bg-white shadow-sm"
+              onClick={() => setPreviewImage("")}
+              title="Đóng"
+            >
+              <X className="h-4 w-4 mx-auto" />
+            </button>
+            <img
+              src={previewImage}
+              alt="image preview"
+              className="max-w-[92vw] max-h-[92vh] rounded-2xl border border-white/30 shadow-2xl object-contain bg-black/20"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

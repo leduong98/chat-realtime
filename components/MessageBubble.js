@@ -28,7 +28,7 @@ function Status({ status }) {
   return null;
 }
 
-export default function MessageBubble({ isOwn, message, timestamp, kind, status }) {
+export default function MessageBubble({ isOwn, message, timestamp, kind, status, onImageClick }) {
   const isImage = kind === "image" || String(message || "").startsWith("data:image/");
   return (
     <div className={`flex mb-3 ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -44,7 +44,10 @@ export default function MessageBubble({ isOwn, message, timestamp, kind, status 
             <img
               src={message}
               alt="image"
-              className="max-w-[240px] max-h-[240px] rounded-xl border border-black/10"
+              className="max-w-[240px] max-h-[240px] rounded-xl border border-black/10 cursor-zoom-in"
+              onClick={() => {
+                if (onImageClick) onImageClick(String(message));
+              }}
             />
             <button
               type="button"
