@@ -11,6 +11,7 @@ import {
   getLastMessage,
   saveMessage,
   saveMessages,
+  clearMessages,
   loadPeers,
   savePeers,
   loadActivePeer,
@@ -55,6 +56,7 @@ export default function ChatWindow() {
   const [lastMessageByPeerId, setLastMessageByPeerId] = useState({});
   const [unreadPeerIds, setUnreadPeerIds] = useState({}); // { [peerId]: true }
   const [peerLastActivity, setPeerLastActivity] = useState({}); // { [peerId]: timestamp }
+  const [confirmRemovePeerId, setConfirmRemovePeerId] = useState(null); // pid khi đang hỏi xác nhận xóa
 
   const [sseStatus, setSseStatus] = useState("disconnected"); // reusing status labels for UI
   const pollRef = useRef(null);
@@ -547,6 +549,27 @@ export default function ChatWindow() {
     }
   }
 
+  async function confirmRemovePeer(pid) {
+    await clearMessages(pid);
+    setLastMessageByPeerId((prev) => {
+      const next = { ...prev };
+      delete next[pid];
+      return next;
+    });
+    setUnreadPeerIds((prev) => {
+      const next = { ...prev };
+      delete next[pid];
+      return next;
+    });
+    setPeerLastActivity((prev) => {
+      const next = { ...prev };
+      delete next[pid];
+      return next;
+    });
+    removePeer(pid);
+    setConfirmRemovePeerId(null);
+  }
+
   const activePeer = peers.find((p) => p.peerId === activePeerId) || null;
 
   if (!mounted) {
@@ -679,18 +702,20 @@ export default function ChatWindow() {
                 const isOnline = peerLastActivity[p.peerId] && Date.now() - peerLastActivity[p.peerId] < 3 * 60 * 1000;
                 const hasUnread = unreadPeerIds[p.peerId];
                 return (
-                <div key={p.peerId} className="relative">
+                <div key={p.peerId} className="relative space-y-1">
                   <button
                     type="button"
                     className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border-2 cursor-pointer text-left transition-colors ${
                       hasUnread
-                        ? "border-orange-500"
+                        ? "border-orange-500 ring-2 ring-orange-400/60 bg-orange-500/15"
                         : p.peerId === activePeerId
                         ? "border-[var(--primary)]"
                         : "border-[var(--border)]"
                     } ${
                       p.peerId === activePeerId
                         ? "bg-[var(--primary)] text-white"
+                        : hasUnread
+                        ? ""
                         : "bg-[var(--card)] text-[var(--fg)] hover:bg-[var(--card-2)]"
                     }`}
                     onClick={() => setActivePeerId(p.peerId)}
@@ -703,6 +728,9 @@ export default function ChatWindow() {
                         aria-hidden
                         style={{ backgroundColor: isOnline ? "#22c55e" : "#ef4444" }}
                       />
+                      {hasUnread ? (
+                        <span className="shrink-0 w-2 h-2 rounded-full bg-orange-500 ring-2 ring-white dark:ring-gray-800" title="Tin chưa đọc" aria-hidden />
+                      ) : null}
                       <div className="min-w-0">
                         <div className="font-semibold leading-5 truncate">{p.alias}</div>
                         <div
@@ -716,6 +744,27 @@ export default function ChatWindow() {
                     </div>
                     <span className="sr-only">Mở chat</span>
                   </button>
+                  {confirmRemovePeerId === p.peerId ? (
+                    <div className="rounded-xl border border-amber-500/80 bg-amber-500/20 px-3 py-2 text-xs text-amber-900 dark:text-amber-100 flex items-center justify-between gap-2">
+                      <span>Xóa kết nối? Lịch sử chat sẽ bị xóa.</span>
+                      <span className="flex gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-700"
+                          onClick={(e) => { e.stopPropagation(); confirmRemovePeer(p.peerId); }}
+                        >
+                          Xác nhận
+                        </button>
+                        <button
+                          type="button"
+                          className="px-2 py-1 rounded-lg bg-white/80 dark:bg-black/30 text-amber-900 dark:text-amber-100 font-medium hover:bg-white dark:hover:bg-black/50"
+                          onClick={(e) => { e.stopPropagation(); setConfirmRemovePeerId(null); }}
+                        >
+                          Hủy
+                        </button>
+                      </span>
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     className={`shrink-0 cursor-pointer ${
@@ -725,9 +774,9 @@ export default function ChatWindow() {
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      removePeer(p.peerId);
+                      setConfirmRemovePeerId(p.peerId);
                     }}
-                    title="Xóa khỏi danh sách"
+                    title="Xóa khỏi danh sách (sẽ xóa lịch sử chat)"
                     style={{ position: "absolute", right: 12, top: 10 }}
                   >
                     <X className="h-4 w-4" />
